@@ -12,6 +12,7 @@
   --canvas: #f4f2eb;          /* warm paper */
   --surface-card: #fffdf8;    /* menu-card white */
   --surface-soft: #eeeae0;    /* inset / quiet plates */
+  --surface-header: rgba(244, 242, 235, 0.88); /* sticky top-bar surface (translucent paper) */
   --ink: #221d16;             /* near-black text (warm) */
   --body: #4b443a;            /* body text */
   --muted: #6e675c;           /* secondary text (AA on canvas) */
@@ -74,6 +75,7 @@
   --canvas: #211d18;
   --surface-card: #2a2620;
   --surface-soft: #34302a;
+  --surface-header: rgba(33, 29, 24, 0.88); /* dark sticky top-bar surface */
   --ink: #f2efe7;
   --body: #d6d0c3;
   --muted: #a49c8d;
@@ -571,6 +573,11 @@ app-results {
 
   /* pale correct/wrong fills in dark — flip the white glyph to dark ink */
   .indicator {
+    color: var(--canvas);
+  }
+
+  /* skip link — tomato pill on dark canvas reads better with dark ink glyph */
+  .skip-link {
     color: var(--canvas);
   }
 }

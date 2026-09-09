@@ -33,6 +33,7 @@ yarn-error.log*
 
 # === Runtime ===
 .logs/
+.playwright-cli/
 
 # === IDE ===
 .vscode/*

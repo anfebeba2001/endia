@@ -12,7 +12,7 @@
     z-index: 10;
     padding: 0.85rem max(clamp(1rem, 4vw, 2rem), env(safe-area-inset-left));
     padding-right: max(clamp(1rem, 4vw, 2rem), env(safe-area-inset-right));
-    background: rgba(244, 242, 235, 0.88);
+    background: var(--surface-header);
     backdrop-filter: saturate(160%) blur(12px);
     border-bottom: 1px solid var(--hairline);
     display: flex;
@@ -112,15 +112,5 @@
   &:hover {
     border-color: var(--accent);
     background: var(--surface-soft);
-  }
-}
-
-[data-theme='dark'] {
-  .app-shell__header {
-    background: rgba(33, 29, 24, 0.88);
-  }
-
-  .skip-link {
-    color: var(--canvas);
   }
 }
