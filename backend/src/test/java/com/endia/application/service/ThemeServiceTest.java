@@ -1,7 +1,9 @@
 package com.endia.application.service;
 
 import com.endia.application.port.LlmProvider;
+import com.endia.domain.enums.LlmErrorCause;
 import com.endia.domain.exception.EntityNotFoundException;
+import com.endia.domain.exception.LlmGenerationException;
 import com.endia.domain.exception.ServiceUnavailableException;
 import com.endia.domain.model.Subtopic;
 import com.endia.domain.model.Theme;
@@ -76,7 +78,18 @@ class ThemeServiceTest {
     }
 
     @Test
-    void suggestSubtopicsThrowsServiceUnavailableWhenLlmFails() {
+    void suggestSubtopicsPropagatesTypedLlmGenerationExceptionUnchanged() {
+        LlmGenerationException llmError = new LlmGenerationException(LlmErrorCause.UNAVAILABLE, true, "boom");
+        when(llmProvider.suggestSubtopics("Theme")).thenThrow(llmError);
+
+        LlmGenerationException thrown = assertThrows(LlmGenerationException.class,
+                () -> themeService.suggestSubtopics("Theme"));
+
+        assertEquals(LlmErrorCause.UNAVAILABLE, thrown.getCauseType());
+    }
+
+    @Test
+    void suggestSubtopicsMapsUnexpectedErrorsToServiceUnavailable() {
         when(llmProvider.suggestSubtopics("Theme"))
                 .thenThrow(new RuntimeException("LLM down"));
 

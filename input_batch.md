@@ -1,29 +1,3 @@
-### Task 1: Fix Endia logo visibility in the top bar across light and dark modes
-
-- Status: no iniciado
-- Ready: yes
-- Sources: item 1
-- Description: The Endia logo word in the top bar currently blends into the background in dark mode. Ensure it is clearly visible with good contrast in both light and dark themes.
-
-**Acceptance criteria:**
-- [ ] The "Endia" logo word in the top bar is visible with adequate contrast (WCAG AA, >= 4.5:1 for normal text) in light mode.
-- [ ] The "Endia" logo word is visible with adequate contrast (>= 4.5:1) in dark mode — it no longer matches the background color.
-- [ ] The contrast is verified by toggling the app between light and dark theme at least once and visually confirming the logo reads clearly in each mode.
-- [ ] No other adjacent UI elements (icons, buttons) in the top bar change appearance or layout as a side effect.
-
-### Task 2: Root-cause and fix "An unexpected error occurred" when adding a custom focus area
-
-- Status: no iniciado
-- Ready: yes
-- Sources: item 2
-- Description: "Add your own focus area" surfaces a generic INTERNAL_ERROR (message "An unexpected error occurred", field null). Identify the root cause, fix it, and verify the add-subtopic flow works.
-
-**Acceptance criteria:**
-- [ ] The actual underlying exception for the add-custom-subtopic flow is identified and documented (root cause described in the change notes/task update).
-- [ ] Adding a valid custom focus area no longer returns INTERNAL_ERROR and persists successfully via `SubtopicService.addSubtopics` (source `USER_PROPOSED`).
-- [ ] Adding a duplicate custom focus area returns the expected duplicates behavior (or a meaningful user-facing message) rather than an unhandled INTERNAL_ERROR.
-- [ ] The backend log in the add-subtopic path records the error with the actual exception/message when a failure occurs (no more silent generic error).
-- [ ] Manual test reproduces the previously failing step in the browser and confirms success.
 
 ### Task 3: Root-cause and fix "An unexpected error occurred" when generating snacks
 
@@ -56,7 +30,25 @@
 
 ## Current status
 
-- Task 1: Ready (awaiting implementation)
-- Task 2: Ready (awaiting implementation)
 - Task 3: Ready (awaiting implementation)
 - Task 4: Ready (awaiting implementation)
+- Task 5: COMPLETED (branch 004-topic-suggest-retry)
+- Task 6: Ready (awaiting implementation)
+
+
+### Task 6: Fall back to an alternate LLM provider after retries are exhausted
+
+- Status: no iniciado
+- Ready: yes
+- Sources: item 5
+- Description: After the 2 automatic reattempts for topic suggestion fail (SERVICE_UNAVAILABLE per the backend), use an alternate LLM provider as a fallback so the suggestion flow can still succeed.
+
+**Acceptance criteria:**
+- [ ] The backend/API topic-suggestion path attempts a primary LLM provider and, after the retries are exhausted (or on persistent SERVICE_UNAVAILABLE), switches to an alternate configured LLM provider.
+- [ ] When the primary provider is unavailable but the alternate provider responds, the topic-suggestion returns a successful result (topics are suggested), with the alternate provider clearly used/logged.
+- [ ] The alternate provider is configurable (via configuration/env) and does not require code changes to switch providers.
+- [ ] The failure path is logged/traced showing which provider was used, including provider fallback decisions.
+- [ ] If both primary and alternate providers fail, a meaningful error is returned (consistent with Task 5 surface behaviour).
+- [ ] Manual test simulates a primary-provider SERVICE_UNAVAILABLE and confirms the alternate provider is used and the flow still succeeds.
+
+Future tasks ... 
