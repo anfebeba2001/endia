@@ -97,4 +97,20 @@ class SubtopicServiceTest {
         assertEquals(1, result.added().size());
         assertEquals("Valid name", result.added().get(0).getName());
     }
+
+    @Test
+    void addSubtopicsDoesNotSwallowPersistenceException() {
+        when(themeRepository.findById(themeId)).thenReturn(Optional.of(theme));
+        when(subtopicRepository.findByThemeId(themeId)).thenReturn(List.of());
+        // Simulate a real failure in the persistence layer (e.g. DB constraint violation).
+        RuntimeException boom = new RuntimeException("simulated persistence failure");
+        when(subtopicRepository.save(any(Subtopic.class))).thenThrow(boom);
+
+        // The add path MUST NOT swallow the exception: it propagates so the generic
+        // handler still returns an HTTP error, while the controller log records the real cause.
+        RuntimeException thrown = assertThrows(RuntimeException.class,
+                () -> subtopicService.addSubtopics(themeId, List.of("Photorespiration")));
+
+        assertEquals("simulated persistence failure", thrown.getMessage());
+    }
 }

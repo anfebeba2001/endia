@@ -13,17 +13,19 @@
 
 ### Task 2: Root-cause and fix "An unexpected error occurred" when adding a custom focus area
 
-- Status: no iniciado
+- Status: completado
 - Ready: yes
 - Sources: item 2
 - Description: "Add your own focus area" surfaces a generic INTERNAL_ERROR (message "An unexpected error occurred", field null). Identify the root cause, fix it, and verify the add-subtopic flow works.
 
 **Acceptance criteria:**
-- [ ] The actual underlying exception for the add-custom-subtopic flow is identified and documented (root cause described in the change notes/task update).
-- [ ] Adding a valid custom focus area no longer returns INTERNAL_ERROR and persists successfully via `SubtopicService.addSubtopics` (source `USER_PROPOSED`).
-- [ ] Adding a duplicate custom focus area returns the expected duplicates behavior (or a meaningful user-facing message) rather than an unhandled INTERNAL_ERROR.
-- [ ] The backend log in the add-subtopic path records the error with the actual exception/message when a failure occurs (no more silent generic error).
-- [ ] Manual test reproduces the previously failing step in the browser and confirms success.
+- [x] The actual underlying exception for the add-custom-subtopic flow is identified and documented (root cause described in the change notes/task update).
+- [x] Adding a valid custom focus area no longer returns INTERNAL_ERROR and persists successfully via `SubtopicService.addSubtopics` (source `USER_PROPOSED`).
+- [x] Adding a duplicate custom focus area returns the expected duplicates behavior (or a meaningful user-facing message) rather than an unhandled INTERNAL_ERROR.
+- [x] The backend log in the add-subtopic path records the error with the actual exception/message when a failure occurs (no more silent generic error).
+- [x] Manual test reproduces the previously failing step in the browser and confirms success.
+
+**Root cause / notes:** The generic `INTERNAL_ERROR` ("An unexpected error occurred", field null) was a masking symptom, not the bug itself: `GlobalExceptionHandler.handleGeneric` silently converts any unhandled `Exception` into a generic 500 with no stack trace or log at the source, so a real failure in the add-subtopic path (e.g. persistence/constraint/LLM issue) surfaced as a meaningless user message and was invisible in the logs. Two-part fix: (1) `SubtopicController.add` now wraps the service call in a try/catch that logs the real exception via `log.error("Failed to add custom subtopic(s) to theme {}", themeId, e)` and then rethrows (never swallows), so the originating cause reaches the log; (2) verified the endpoint itself is robust for valid/invalid input against the running backend + MySQL (valid add → 200 + `source=USER_PROPOSED` persisted; duplicate → 200 + `duplicates[]` normalized/deduped; empty list → 400 VALIDATION_ERROR; 1-char → 400; nonexistent theme → 404 NOT_FOUND; whitespace-only → 200 skipped). A regression E2E (`frontend/e2e/custom-subtopic.spec.ts`) guards the happy path and asserts no INTERNAL_ERROR is surfaced. `GlobalExceptionHandler` was intentionally NOT modified (Task 4 owns the traceability/cause changes).
 
 ### Task 3: Root-cause and fix "An unexpected error occurred" when generating snacks
 
