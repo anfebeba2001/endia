@@ -1,0 +1,84 @@
+package com.endia.infrastructure.llm;
+
+import com.endia.application.port.LlmProvider;
+import com.endia.domain.enums.DragDropVariant;
+import com.endia.domain.enums.LlmErrorCause;
+import com.endia.domain.exception.LlmGenerationException;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+class RetryingLlmProviderTest {
+
+    @Test
+    void succeedsWithinThreeAttempts() {
+        AtomicInteger calls = new AtomicInteger();
+        LlmProvider delegate = new StubProvider(() -> {
+            if (calls.incrementAndGet() < 3) {
+                throw new LlmGenerationException(LlmErrorCause.UNAVAILABLE, true, "down");
+            }
+            return List.of();
+        });
+
+        RetryingLlmProvider provider = new RetryingLlmProvider(delegate, 3, 1, 2.0, 10, 0.0);
+        List<String> result = provider.suggestSubtopics("Theme");
+
+        assertEquals(0, result.size());
+        assertEquals(3, calls.get());
+    }
+
+    @Test
+    void exhaustsAfterThreeAttempts() {
+        AtomicInteger calls = new AtomicInteger();
+        LlmProvider delegate = new StubProvider(() -> {
+            calls.incrementAndGet();
+            throw new LlmGenerationException(LlmErrorCause.TIMEOUT, true, "timeout");
+        });
+
+        RetryingLlmProvider provider = new RetryingLlmProvider(delegate, 3, 1, 2.0, 10, 0.0);
+        LlmGenerationException ex = assertThrows(LlmGenerationException.class, () -> provider.suggestSubtopics("Theme"));
+
+        assertEquals(LlmErrorCause.TIMEOUT, ex.getCauseType());
+        assertEquals(3, calls.get());
+    }
+
+    @Test
+    void passThroughForNonRetryableCause() {
+        AtomicInteger calls = new AtomicInteger();
+        LlmProvider delegate = new StubProvider(() -> {
+            calls.incrementAndGet();
+            throw new LlmGenerationException(LlmErrorCause.UNAVAILABLE, false, "not retryable");
+        });
+
+        RetryingLlmProvider provider = new RetryingLlmProvider(delegate, 3, 1, 2.0, 10, 0.0);
+        assertThrows(LlmGenerationException.class, () -> provider.generateQuiz("Theme", "Subtopic", 4, DragDropVariant.SEQUENCING));
+        assertEquals(1, calls.get());
+    }
+
+    private static class StubProvider implements LlmProvider {
+        private final java.util.function.Supplier<?> supplier;
+
+        StubProvider(java.util.function.Supplier<?> supplier) {
+            this.supplier = supplier;
+        }
+
+        @Override
+        public List<String> suggestSubtopics(String theme) {
+            return (List<String>) supplier.get();
+        }
+
+        @Override
+        public GeneratedSnack generateSnack(String theme, String subtopicName) {
+            return (GeneratedSnack) supplier.get();
+        }
+
+        @Override
+        public List<GeneratedQuestion> generateQuiz(String theme, String subtopicName, int count, DragDropVariant variant) {
+            return (List<GeneratedQuestion>) supplier.get();
+        }
+    }
+}

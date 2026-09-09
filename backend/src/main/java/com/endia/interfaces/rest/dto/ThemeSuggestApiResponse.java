@@ -7,6 +7,6 @@ public record ThemeSuggestApiResponse(
         UUID themeId,
         List<SubtopicItem> subtopics
 ) {
-    public record SubtopicItem(UUID id, String name) {
+    public record SubtopicItem(UUID id, String name, String source) {
     }
 }

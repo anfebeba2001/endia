@@ -74,6 +74,21 @@
       }
     </div>
 
+    @if (s.recap; as recap) {
+      <article class="recap-card">
+        <header class="recap-card__head">
+          <span class="recap-card__chip">{{ recap.subtopicName }}</span>
+          <h2 class="recap-card__title">Keep chewing on it</h2>
+        </header>
+        @if (recap.snack; as snack) {
+          <p class="recap-card__concept">{{ snack.concept }}</p>
+          <p class="recap-card__metaphor">{{ snack.metaphor }}</p>
+        } @else {
+          <p class="recap-card__concept">Revisit the {{ recap.subtopicName }} snack to reinforce the idea.</p>
+        }
+      </article>
+    }
+
     <div class="results-footer">
       <button class="primary-btn" (click)="restart()">Start a new theme</button>
     </div>

@@ -1,0 +1,55 @@
+@if (variant === 'SEQUENCING') {
+  <ol class="dd-list" role="list">
+    @for (item of order(); track item; let i = $index) {
+      <li class="dd-item" [class.dd-item--dragging]="dragging() === item" draggable="true" (dragstart)="onDragStart(item)" (dragover)="$event.preventDefault()" (drop)="onDrop(item)">
+        <span class="dd-item__handle" aria-hidden="true">⠿</span>
+        <span class="dd-item__text">{{ item }}</span>
+        <span class="dd-item__controls">
+          <button type="button" aria-label="Move up" [disabled]="i === 0" (click)="moveUp(i)">↑</button>
+          <button type="button" aria-label="Move down" [disabled]="i === order().length - 1" (click)="moveDown(i)">↓</button>
+        </span>
+      </li>
+    }
+  </ol>
+}
+
+@if (variant === 'CLASSIFICATION') {
+  <div class="dd-classify">
+    @for (cat of categories; track cat) {
+      <div class="dd-category" [class.dd-category--droppable]="dragging() !== null" (dragover)="$event.preventDefault()" (drop)="onDropToCategory(cat)">
+        <h3 class="dd-category__name">{{ cat }}</h3>
+        @for (item of items; track item) {
+          <button
+            class="dd-chip"
+            type="button"
+            draggable="true"
+            (dragstart)="onDragStart(item)"
+            [class.dd-chip--assigned]="categoryAssignments()[item] === cat"
+            (click)="assignCategory(item, cat)"
+            [attr.aria-pressed]="categoryAssignments()[item] === cat"
+          >{{ item }}</button>
+        }
+      </div>
+    }
+  </div>
+}
+
+@if (variant === 'MATCHING') {
+  <div class="dd-match">
+    @for (item of items; track item) {
+      <div class="dd-match__row">
+        <span class="dd-match__left">{{ item }}</span>
+        <span class="dd-match__arrow" aria-hidden="true">→</span>
+        <label class="dd-match__right">
+          <span class="sr-only">Match {{ item }}</span>
+          <select [value]="matches()[item]" (change)="assignMatch(item, $any($event.target).value)">
+            <option value="" disabled>Choose…</option>
+            @for (r of rightItems; track r) {
+              <option [value]="r">{{ r }}</option>
+            }
+          </select>
+        </label>
+      </div>
+    }
+  </div>
+}

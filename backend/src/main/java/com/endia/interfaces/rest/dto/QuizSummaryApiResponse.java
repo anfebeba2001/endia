@@ -8,16 +8,39 @@ public record QuizSummaryApiResponse(
         int totalQuestions,
         int correctAnswers,
         int totalXp,
-        List<QuestionBreakdown> questions
+        List<QuestionBreakdown> questions,
+        Recap recap
 ) {
     public record QuestionBreakdown(
             UUID questionId,
+            String type,
             String prompt,
             List<String> options,
-            int chosenIndex,
+            Integer chosenIndex,
             boolean correct,
-            int correctIndex,
+            Integer correctIndex,
+            String variant,
+            List<String> correctArrangement,
+            List<String> submittedArrangement,
             String explanation
+    ) {
+    }
+
+    public record Recap(
+            UUID subtopicId,
+            String subtopicName,
+            SnackDto snack
+    ) {
+    }
+
+    public record SnackDto(
+            UUID id,
+            UUID subtopicId,
+            String subtopicName,
+            String concept,
+            String metaphor,
+            String whyItMatters,
+            List<String> related
     ) {
     }
 }

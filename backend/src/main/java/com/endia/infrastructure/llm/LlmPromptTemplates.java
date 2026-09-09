@@ -1,5 +1,6 @@
 package com.endia.infrastructure.llm;
 
+import com.endia.domain.enums.DragDropVariant;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
@@ -21,11 +22,12 @@ public class LlmPromptTemplates {
         return tpl.replace("{{theme}}", theme).replace("{{subtopic}}", subtopic);
     }
 
-    public String generateQuiz(String theme, String subtopic, int count) {
+    public String generateQuiz(String theme, String subtopic, int count, DragDropVariant variant) {
         String tpl = load("prompts/generate-quiz.md");
         return tpl.replace("{{theme}}", theme)
                 .replace("{{subtopic}}", subtopic)
-                .replace("{{count}}", String.valueOf(count));
+                .replace("{{count}}", String.valueOf(count))
+                .replace("{{variant}}", variant.name());
     }
 
     private String render(String path, String placeholder, String value) {

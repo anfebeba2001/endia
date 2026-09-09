@@ -1,11 +1,16 @@
 package com.endia.application.integration;
 
+import com.endia.domain.enums.DragDropVariant;
+import com.endia.domain.enums.QuestionType;
 import com.endia.domain.model.AnswerAttempt;
+import com.endia.domain.model.DragDropContent;
 import com.endia.domain.model.QuizQuestion;
+import com.endia.domain.model.Snack;
 import com.endia.domain.model.Subtopic;
 import com.endia.domain.model.Theme;
 import com.endia.infrastructure.persistence.JpaAnswerAttemptRepository;
 import com.endia.infrastructure.persistence.JpaQuizQuestionRepository;
+import com.endia.infrastructure.persistence.JpaSnackRepository;
 import com.endia.infrastructure.persistence.JpaSubtopicRepository;
 import com.endia.infrastructure.persistence.JpaThemeRepository;
 import org.junit.jupiter.api.Tag;
@@ -19,6 +24,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -57,6 +63,8 @@ class QuizFlowIntegrationTest {
     private JpaQuizQuestionRepository quizQuestionRepository;
     @Autowired
     private JpaAnswerAttemptRepository answerAttemptRepository;
+    @Autowired
+    private JpaSnackRepository snackRepository;
 
     @Test
     void persistsAndRetrievesQuizWithAnswerAttempts() {
@@ -101,5 +109,45 @@ class QuizFlowIntegrationTest {
         // Second answer with the SAME chosen_index violates the unique constraint.
         assertThrows(Exception.class, () ->
                 answerAttemptRepository.saveAndFlush(new AnswerAttempt(savedQuiz, 2, true, 10)));
+    }
+
+    // ---- T075: drag-drop + recap ----
+
+    @Test
+    void persistsDragDropQuestionAndAnswersWithArrangement() {
+        Theme theme = new Theme("Theme");
+        theme = themeRepository.save(theme);
+        Subtopic subtopic = new Subtopic(theme, "Subtopic");
+        subtopic = subtopicRepository.save(subtopic);
+
+        DragDropContent content = new DragDropContent(DragDropVariant.SEQUENCING,
+                List.of("A", "B", "C"), List.of(), Map.of(), List.of("A", "B", "C"));
+        QuizQuestion dd = new QuizQuestion(subtopic, "Order them.", DragDropVariant.SEQUENCING, content, "Expl");
+        dd = quizQuestionRepository.save(dd);
+
+        // findBySubtopicIdAndType (used by drag-drop recap/generation queries)
+        List<QuizQuestion> byType = quizQuestionRepository.findBySubtopicIdAndType(subtopic.getId(), QuestionType.DRAG_DROP);
+        assertEquals(1, byType.size());
+        assertEquals(DragDropContent.class, byType.get(0).getDragDropContent().getClass());
+        assertEquals(List.of("A", "B", "C"), byType.get(0).getDragDropContent().correctOrder());
+
+        AnswerAttempt attempt = new AnswerAttempt(dd, List.of("A", "B", "C"), true, 10);
+        attempt = answerAttemptRepository.save(attempt);
+        assertEquals("A", attempt.getArrangement().get(0));
+        assertTrue(attempt.isCorrect());
+        assertEquals(10, attempt.getXpEarned());
+    }
+
+    @Test
+    void snackRecapLoadableViaFindBySubtopicId() {
+        Theme theme = new Theme("Theme");
+        theme = themeRepository.save(theme);
+        Subtopic subtopic = new Subtopic(theme, "Subtopic");
+        subtopic = subtopicRepository.save(subtopic);
+
+        Snack snack = new Snack(subtopic, "concept", "metaphor", "why", List.of("r1"));
+        snackRepository.save(snack);
+
+        assertEquals("concept", snackRepository.findBySubtopicId(subtopic.getId()).orElseThrow().getConcept());
     }
 }

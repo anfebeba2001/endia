@@ -4,14 +4,15 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
+import java.util.List;
 import java.util.UUID;
 
 public record QuizAnswerApiRequest(
         @NotNull(message = "questionId is required")
         UUID questionId,
-        @NotNull(message = "chosenIndex is required")
         @Min(value = 0, message = "Option index must be between 0 and 3")
         @Max(value = 3, message = "Option index must be between 0 and 3")
-        Integer chosenIndex
+        Integer chosenIndex,
+        List<String> arrangement
 ) {
 }

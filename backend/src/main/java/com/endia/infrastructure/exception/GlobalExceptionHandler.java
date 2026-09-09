@@ -1,6 +1,7 @@
 package com.endia.infrastructure.exception;
 
 import com.endia.domain.exception.DomainException;
+import com.endia.domain.exception.LlmGenerationException;
 import com.endia.domain.exception.QuizAlreadyAnsweredException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,7 +17,7 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    public record ErrorResponse(String error, String message, String field) {
+    public record ErrorResponse(String error, String message, String field, String cause) {
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -30,36 +31,42 @@ public class GlobalExceptionHandler {
                 .map(fe -> fe.getDefaultMessage())
                 .orElse("Validation failed");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponse("VALIDATION_ERROR", message, field));
+                .body(new ErrorResponse("VALIDATION_ERROR", message, field, null));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponse("VALIDATION_ERROR", "Invalid value for parameter: " + ex.getName(), ex.getName()));
+                .body(new ErrorResponse("VALIDATION_ERROR", "Invalid value for parameter: " + ex.getName(), ex.getName(), null));
     }
 
     @ExceptionHandler(QuizAlreadyAnsweredException.class)
     public ResponseEntity<ErrorResponse> handleAlreadyAnswered(QuizAlreadyAnsweredException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(new ErrorResponse("CONFLICT", ex.getMessage(), null));
+                .body(new ErrorResponse("CONFLICT", ex.getMessage(), null, null));
+    }
+
+    @ExceptionHandler(LlmGenerationException.class)
+    public ResponseEntity<ErrorResponse> handleLlmGeneration(LlmGenerationException ex) {
+        return ResponseEntity.status(ex.getStatus())
+                .body(new ErrorResponse(ex.getErrorCode(), ex.getMessage(), null, ex.getCauseType().name()));
     }
 
     @ExceptionHandler(DomainException.class)
     public ResponseEntity<ErrorResponse> handleDomain(DomainException ex) {
         return ResponseEntity.status(ex.getStatus())
-                .body(new ErrorResponse(ex.getErrorCode(), ex.getMessage(), null));
+                .body(new ErrorResponse(ex.getErrorCode(), ex.getMessage(), null, null));
     }
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ErrorResponse> handleResponseStatus(ResponseStatusException ex) {
         return ResponseEntity.status(ex.getStatusCode())
-                .body(new ErrorResponse("ERROR", ex.getReason(), null));
+                .body(new ErrorResponse("ERROR", ex.getReason(), null, null));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred", null));
+                .body(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred", null, null));
     }
 }

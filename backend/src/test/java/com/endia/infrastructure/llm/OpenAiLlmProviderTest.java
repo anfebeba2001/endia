@@ -1,7 +1,9 @@
 package com.endia.infrastructure.llm;
 
 import com.endia.application.port.LlmProvider;
-import com.endia.domain.exception.ServiceUnavailableException;
+import com.endia.domain.enums.DragDropVariant;
+import com.endia.domain.enums.LlmErrorCause;
+import com.endia.domain.exception.LlmGenerationException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -15,7 +17,7 @@ import org.springframework.web.client.RestClient;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -42,7 +44,8 @@ class OpenAiLlmProviderTest {
                 "test-api-key",
                 server.url("/v1").toString(),
                 "gpt-4o-mini",
-                5);
+                5,
+                3, 1000, 2.0, 10000, 0.2);
 
         provider = new OpenAiLlmProvider(restClient, config, templates);
     }
@@ -52,12 +55,16 @@ class OpenAiLlmProviderTest {
         server.shutdown();
     }
 
+    private LlmConfig config(String apiKey, int timeoutSeconds, String baseUrl) {
+        return new LlmConfig(apiKey, baseUrl, "gpt-4o-mini", timeoutSeconds, 3, 1000, 2.0, 10000, 0.2);
+    }
+
     @Test
     void suggestSubtopicsParsesJsonArray() throws Exception {
         server.enqueue(new MockResponse()
                 .setHeader("Content-Type", "application/json")
                 .setBody("""
-                        {"choices":[{"message":{"content":"[\\"Light reactions\\",\\"Calvin cycle\\",\\"Chloroplast\\"]"}}]}
+                        {"choices":[{"message":{"content":"[\\"Light reactions\\",\\"Calvin cycle\\",\\"Chloroplast\\"]"}}]}}
                         """));
 
         List<String> result = provider.suggestSubtopics("Photosynthesis");
@@ -108,7 +115,7 @@ class OpenAiLlmProviderTest {
                         {"choices":[{"message":{"content":"[{\\"prompt\\":\\"Q1\\",\\"options\\":[\\"A\\",\\"B\\",\\"C\\",\\"D\\"],\\"correctIndex\\":2,\\"explanation\\":\\"E\\"}]"}}]}}
                         """));
 
-        List<LlmProvider.GeneratedQuestion> questions = provider.generateQuiz("Theme", "Subtopic", 4);
+        List<LlmProvider.GeneratedQuestion> questions = provider.generateQuiz("Theme", "Subtopic", 4, DragDropVariant.SEQUENCING);
 
         assertEquals(1, questions.size());
         assertEquals("Q1", questions.get(0).prompt());
@@ -117,19 +124,96 @@ class OpenAiLlmProviderTest {
     }
 
     @Test
-    void throwsServiceUnavailableOnServerError() {
-        server.enqueue(new MockResponse().setResponseCode(503).setBody("unavailable"));
+    void generateQuizParsesDragDrop() throws Exception {
+        server.enqueue(new MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody("""
+                        {"choices":[{"message":{"content":"[{\\"type\\":\\"DRAG_DROP\\",\\"prompt\\":\\"Order\\",\\"explanation\\":\\"E\\",\\"variant\\":\\"SEQUENCING\\",\\"dragDrop\\":{\\"items\\":[\\"A\\",\\"B\\"],\\"correctOrder\\":[\\"A\\",\\"B\\"]}}]"}}]}}
+                        """));
 
-        assertThrows(ServiceUnavailableException.class, () -> provider.suggestSubtopics("Theme"));
+        List<LlmProvider.GeneratedQuestion> questions = provider.generateQuiz("Theme", "Subtopic", 4, DragDropVariant.SEQUENCING);
+
+        assertEquals(1, questions.size());
+        assertEquals(LlmProvider.GeneratedQuestion.QuestionType.DRAG_DROP, questions.get(0).type());
+        assertEquals(DragDropVariant.SEQUENCING, questions.get(0).variant());
+        assertEquals(List.of("A", "B"), questions.get(0).dragDropContent().correctOrder());
+    }
+
+    // ---- Cause mapping (T072) ----
+
+    @Test
+    void throwsUnauthorizedCauseOnQuota() {
+        server.enqueue(new MockResponse().setResponseCode(429).setBody("rate limited"));
+
+        LlmGenerationException ex = assertThrows(LlmGenerationException.class, () -> provider.suggestSubtopics("Theme"));
+        assertEquals(LlmErrorCause.QUOTA, ex.getCauseType());
+        assertEquals(429, ex.getStatus());
+        assertTrue(ex.isRetryable());
     }
 
     @Test
-    void throwsServiceUnavailableWhenApiKeyMissing() throws Exception {
+    void throwsUnavailableCauseOnServerError() {
+        server.enqueue(new MockResponse().setResponseCode(503).setBody("unavailable"));
+
+        LlmGenerationException ex = assertThrows(LlmGenerationException.class, () -> provider.suggestSubtopics("Theme"));
+        assertEquals(LlmErrorCause.UNAVAILABLE, ex.getCauseType());
+        assertEquals(503, ex.getStatus());
+        assertTrue(ex.isRetryable());
+    }
+
+    @Test
+    void throwsTimeoutCauseOnReadTimeout() {
+        server.enqueue(new MockResponse().setBodyDelay(2, TimeUnit.SECONDS).setBody("{}"));
+        // Read timeout of 500ms triggers a ResourceAccessException that carries "timed out".
+        OpenAiLlmProvider fastProvider = new OpenAiLlmProvider(
+                RestClient.builder().requestFactory(factory(1)).build(),
+                config("test-api-key", 1, server.url("/v1").toString()),
+                templates);
+
+        LlmGenerationException ex = assertThrows(LlmGenerationException.class, () -> fastProvider.suggestSubtopics("Theme"));
+        assertEquals(LlmErrorCause.TIMEOUT, ex.getCauseType());
+        assertTrue(ex.isRetryable());
+    }
+
+    @Test
+    void networkCauseIsMappedWhenConnectRefused() {
+        OpenAiLlmProvider p = new OpenAiLlmProvider(
+                RestClient.builder().requestFactory(factory(2)).build(),
+                config("test-api-key", 2, "http://localhost:1/v1"),
+                templates);
+        LlmGenerationException ex = assertThrows(LlmGenerationException.class, () -> p.suggestSubtopics("Theme"));
+        assertEquals(LlmErrorCause.NETWORK, ex.getCauseType());
+        assertTrue(ex.isRetryable());
+    }
+
+    @Test
+    void throwsMalformedCauseOnUnparsableResponse() {
+        server.enqueue(new MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody("""
+                        {"choices":[{"message":{"content":"not-json-at-all"}}]}}
+                        """));
+
+        LlmGenerationException ex = assertThrows(LlmGenerationException.class, () -> provider.suggestSubtopics("Theme"));
+        assertEquals(LlmErrorCause.MALFORMED, ex.getCauseType());
+        assertEquals(400, ex.getStatus());
+        assertTrue(ex.isRetryable());
+    }
+
+    @Test
+    void throwsUnavailableCauseWhenApiKeyMissing() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         RestClient restClient = RestClient.builder().requestFactory(factory).build();
-        LlmConfig noKeyConfig = new LlmConfig("", server.url("/v1").toString(), "gpt-4o-mini", 5);
-        OpenAiLlmProvider noKeyProvider = new OpenAiLlmProvider(restClient, noKeyConfig, templates);
+        OpenAiLlmProvider noKeyProvider = new OpenAiLlmProvider(restClient, config("", 5, server.url("/v1").toString()), templates);
 
-        assertThrows(ServiceUnavailableException.class, () -> noKeyProvider.suggestSubtopics("Theme"));
+        LlmGenerationException ex = assertThrows(LlmGenerationException.class, () -> noKeyProvider.suggestSubtopics("Theme"));
+        assertEquals(LlmErrorCause.UNAVAILABLE, ex.getCauseType());
+    }
+
+    private SimpleClientHttpRequestFactory factory(int timeoutSeconds) {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(timeoutSeconds));
+        factory.setReadTimeout(Duration.ofMillis(500));
+        return factory;
     }
 }

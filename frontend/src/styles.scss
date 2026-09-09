@@ -19,9 +19,10 @@
   --hairline-strong: #cfc8b8; /* stronger borders */
 
   --accent: #d9482e;              /* tomato — the one brand accent */
-  --accent-deep: #b23a22;         /* tomato for text / button bg (AA) */
+  --accent-deep: #b23a22;         /* tomato for text / links (AA) */
   --accent-soft: #f9e3da;         /* blush tint for chips/washes */
   --accent-ink: #93280f;          /* tomato for small text (AA+) */
+  --accent-btn: #b23a22;          /* solid tomato button fill (white text, AA) */
 
   /* semantic (fit the warm family) */
   --success: #2e8b57;
@@ -59,6 +60,51 @@
   /* subtle warm ambience over the paper */
   --canvas-glow-a: rgba(217, 72, 46, 0.05);
   --canvas-glow-b: rgba(200, 134, 30, 0.05);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   DARK MODE — inverted warm palette (FR-011..014)
+   Same custom properties as :root, re-derived for a dark canvas.
+   Applied by setting data-theme="dark" on <html>.
+   ══════════════════════════════════════════════════════════════════ */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* ── Palette ──────────────────────────────────────────────────── */
+  --canvas: #211d18;
+  --surface-card: #2a2620;
+  --surface-soft: #34302a;
+  --ink: #f2efe7;
+  --body: #d6d0c3;
+  --muted: #a49c8d;
+  --hairline: #3a352e;
+  --hairline-strong: #4c463a;
+
+  --accent: #ef7a5a;
+  --accent-deep: #ff8a66;
+  --accent-soft: #3c241c;
+  --accent-ink: #ffb49c;
+  --accent-btn: #c7401f;          /* solid tomato button fill — stays deep in dark so white text holds AA */
+
+  /* semantic (fit the warm family) */
+  --success: #6fce9e;
+  --success-deep: #58c08a;
+  --success-soft: #1d3a2a;
+  --error: #ff8a80;
+  --error-soft: #3c1f1c;
+  --gold: #e6b45a;
+  --gold-soft: #3a2f16;
+  --gold-ink: #f2d9a0;
+
+  /* darker warm shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4), 0 10px 26px -8px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.4), 0 18px 44px -12px rgba(0, 0, 0, 0.6);
+  --shadow-accent: 0 2px 5px rgba(239, 122, 90, 0.3), 0 10px 24px -10px rgba(239, 122, 90, 0.45);
+
+  /* rebased warm ambience */
+  --canvas-glow-a: rgba(239, 122, 90, 0.08);
+  --canvas-glow-b: rgba(230, 180, 90, 0.06);
 }
 
 * {
@@ -178,7 +224,7 @@ button {
   padding: 0.82rem 1.7rem;
   border: 1px solid transparent;
   border-radius: var(--radius-pill);
-  background: var(--accent-deep);
+  background: var(--accent-btn);
   color: #fff;
   font: 600 1rem/1.2 var(--font-body);
   letter-spacing: -0.01em;
@@ -509,5 +555,22 @@ app-results {
   .app-shell__header {
     backdrop-filter: none;
     background: var(--canvas);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   DARK MODE FALLBACKS — re-derive colors that were hardcoded for the
+   light palette or used as light fills, so nothing reads as the wrong
+   light-on-light / dark-on-dark pairing under data-theme="dark".
+   ══════════════════════════════════════════════════════════════════ */
+[data-theme="dark"] {
+  .error-banner {
+    color: var(--error);
+    border-color: rgba(255, 138, 128, 0.4);
+  }
+
+  /* pale correct/wrong fills in dark — flip the white glyph to dark ink */
+  .indicator {
+    color: var(--canvas);
   }
 }

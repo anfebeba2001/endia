@@ -2,6 +2,7 @@ package com.endia.interfaces.rest;
 
 import com.endia.application.service.QuizService;
 import com.endia.domain.model.QuizQuestion;
+import com.endia.domain.model.Snack;
 import com.endia.interfaces.rest.dto.QuizAnswerApiRequest;
 import com.endia.interfaces.rest.dto.QuizAnswerApiResponse;
 import com.endia.interfaces.rest.dto.QuizGenerateApiRequest;
@@ -30,30 +31,33 @@ public class QuizController {
     }
 
     /**
-     * Generates a quiz for a subtopic. correctIndex and explanation are stripped from the response.
+     * Generates a quiz for a subtopic. correctIndex, explanation and the correct
+     * arrangement are stripped from the response (MCQ + drag-drop).
      */
     @PostMapping("/generate")
     public ResponseEntity<QuizGenerateApiResponse> generate(@Valid @RequestBody QuizGenerateApiRequest request) {
         List<QuizQuestion> questions = quizService.generateQuiz(request.subtopicId(), request.countOrDefault());
 
         List<QuizGenerateApiResponse.QuestionItem> items = questions.stream()
-                .map(q -> new QuizGenerateApiResponse.QuestionItem(q.getId(), q.getPrompt(), q.getOptions()))
+                .map(QuizGenerateApiResponse::from)
                 .toList();
 
         return ResponseEntity.ok(new QuizGenerateApiResponse(request.subtopicId(), items));
     }
 
     /**
-     * Answers a quiz question and returns correct status, correctIndex, explanation, and XP.
+     * Answers a quiz question and returns correct status, correct answer, explanation, and XP.
      */
     @PostMapping("/answer")
     public ResponseEntity<QuizAnswerApiResponse> answer(@Valid @RequestBody QuizAnswerApiRequest request) {
-        QuizService.AnswerResult result = quizService.answerQuestion(request.questionId(), request.chosenIndex());
+        QuizService.AnswerResult result = quizService.answerQuestion(request.questionId(), request.chosenIndex(), request.arrangement());
 
         return ResponseEntity.ok(new QuizAnswerApiResponse(
                 result.questionId(),
+                result.type().name(),
                 result.correct(),
                 result.correctIndex(),
+                result.correctArrangement(),
                 result.explanation(),
                 result.xpEarned()
         ));
@@ -69,20 +73,45 @@ public class QuizController {
         List<QuizSummaryApiResponse.QuestionBreakdown> breakdown = summary.questions().stream()
                 .map(q -> new QuizSummaryApiResponse.QuestionBreakdown(
                         q.questionId(),
+                        q.type().name(),
                         q.prompt(),
                         q.options(),
                         q.chosenIndex(),
                         q.correct(),
                         q.correctIndex(),
+                        q.variant() == null ? null : q.variant().name(),
+                        q.correctArrangement(),
+                        q.submittedArrangement(),
                         q.explanation()))
                 .toList();
+
+        QuizSummaryApiResponse.Recap recap = null;
+        if (summary.recap() != null) {
+            QuizService.Recap r = summary.recap();
+            recap = new QuizSummaryApiResponse.Recap(r.subtopicId(), r.subtopicName(), toSnackDto(r.snack()));
+        }
 
         return ResponseEntity.ok(new QuizSummaryApiResponse(
                 summary.subtopicId(),
                 summary.totalQuestions(),
                 summary.correctAnswers(),
                 summary.totalXp(),
-                breakdown
+                breakdown,
+                recap
         ));
+    }
+
+    private QuizSummaryApiResponse.SnackDto toSnackDto(Snack s) {
+        if (s == null) {
+            return null;
+        }
+        return new QuizSummaryApiResponse.SnackDto(
+                s.getId(),
+                s.getSubtopic().getId(),
+                s.getSubtopic().getName(),
+                s.getConcept(),
+                s.getMetaphor(),
+                s.getWhyItMatters(),
+                s.getRelated());
     }
 }

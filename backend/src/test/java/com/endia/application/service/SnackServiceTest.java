@@ -107,4 +107,30 @@ class SnackServiceTest {
         assertEquals(1, snacks.size());
         assertTrue(snacks.get(0).getMetaphor().length() > 0);
     }
+
+    // ---- T069: generateSingleSnack single-snack path ----
+
+    @Test
+    void generateSingleSnackPersistsOneSnack() {
+        when(llmProvider.generateSnack("Photosynthesis", "Light reactions")).thenReturn(validSnack());
+        when(snackRepository.save(any(Snack.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Snack snack = snackService.generateSingleSnack(subtopic);
+
+        assertEquals("The light reactions convert light into chemical energy.", snack.getConcept());
+        assertEquals(subtopic, snack.getSubtopic());
+        verify(snackRepository).save(any(Snack.class));
+    }
+
+    @Test
+    void generateSingleSnackInvokesCallback() {
+        when(llmProvider.generateSnack("Photosynthesis", "Light reactions")).thenReturn(validSnack());
+        when(snackRepository.save(any(Snack.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        boolean[] called = {false};
+        Snack snack = snackService.generateSingleSnack(subtopic, s -> called[0] = true);
+
+        assertTrue(called[0]);
+        assertEquals(subtopic, snack.getSubtopic());
+    }
 }

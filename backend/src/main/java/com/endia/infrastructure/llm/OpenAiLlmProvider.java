@@ -1,23 +1,28 @@
 package com.endia.infrastructure.llm;
 
 import com.endia.application.port.LlmProvider;
-import com.endia.domain.exception.ServiceUnavailableException;
+import com.endia.domain.enums.DragDropVariant;
+import com.endia.domain.enums.LlmErrorCause;
+import com.endia.domain.exception.LlmGenerationException;
+import com.endia.domain.model.DragDropContent;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
-import java.time.Duration;
+import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
 /**
  * OpenAI-compatible LLM provider implemented with Java 21 RestClient.
  * Zero references to any provider classes leak into services/controllers.
+ * <p>
+ * Maps concrete failures to a typed {@link LlmErrorCause}: 429->QUOTA, read/connect
+ * timeout->TIMEOUT, connect/DNS/reset->NETWORK, 5xx/503->UNAVAILABLE, parse/missing
+ * field->MALFORMED. Each is wrapped in an {@link LlmGenerationException}.
  */
 @Component
 public class OpenAiLlmProvider implements LlmProvider {
@@ -46,7 +51,7 @@ public class OpenAiLlmProvider implements LlmProvider {
             }
             return result;
         } catch (Exception e) {
-            throw new ServiceUnavailableException("Failed to parse LLM subtopic response", e);
+            throw malformed("Failed to parse LLM subtopic response", e);
         }
     }
 
@@ -64,37 +69,98 @@ public class OpenAiLlmProvider implements LlmProvider {
             }
             return new GeneratedSnack(concept, metaphor, whyItMatters, related);
         } catch (Exception e) {
-            throw new ServiceUnavailableException("Failed to parse LLM snack response", e);
+            throw malformed("Failed to parse LLM snack response", e);
         }
     }
 
     @Override
-    public List<GeneratedQuestion> generateQuiz(String theme, String subtopicName, int count) {
-        String response = callLlm(templates.generateQuiz(theme, subtopicName, count));
+    public List<GeneratedQuestion> generateQuiz(String theme, String subtopicName, int count, DragDropVariant variant) {
+        String response = callLlm(templates.generateQuiz(theme, subtopicName, count, variant));
         try {
             JsonNode root = objectMapper.readTree(response);
             List<GeneratedQuestion> result = new ArrayList<>();
             if (root.isArray()) {
                 for (JsonNode q : root) {
-                    String prompt = q.path("prompt").asText(null);
-                    int correctIndex = q.path("correctIndex").asInt(-1);
-                    String explanation = q.path("explanation").asText(null);
-                    List<String> options = new ArrayList<>();
-                    if (q.path("options").isArray()) {
-                        q.path("options").forEach(o -> options.add(o.asText()));
-                    }
-                    result.add(new GeneratedQuestion(prompt, options, correctIndex, explanation));
+                    result.add(parseQuestion(q));
                 }
             }
             return result;
+        } catch (LlmGenerationException e) {
+            throw e;
         } catch (Exception e) {
-            throw new ServiceUnavailableException("Failed to parse LLM quiz response", e);
+            throw malformed("Failed to parse LLM quiz response", e);
         }
+    }
+
+    private GeneratedQuestion parseQuestion(JsonNode q) {
+        String prompt = q.path("prompt").asText(null);
+        String explanation = q.path("explanation").asText(null);
+        String typeVal = q.path("type").asText(null);
+
+        GeneratedQuestion.QuestionType type;
+        if (typeVal == null) {
+            // Backward-compat: a bare MCQ-shaped object without "type" is treated as MCQ.
+            type = GeneratedQuestion.QuestionType.MULTIPLE_CHOICE;
+        } else {
+            try {
+                type = GeneratedQuestion.QuestionType.valueOf(typeVal);
+            } catch (IllegalArgumentException e) {
+                throw malformed("Unknown question type: " + typeVal, e);
+            }
+        }
+
+        if (type == GeneratedQuestion.QuestionType.MULTIPLE_CHOICE) {
+            int correctIndex = q.path("correctIndex").asInt(-1);
+            List<String> options = new ArrayList<>();
+            if (q.path("options").isArray()) {
+                q.path("options").forEach(o -> options.add(o.asText()));
+            }
+            return new GeneratedQuestion(prompt, type, options, correctIndex, null, null, explanation);
+        }
+
+        // DRAG_DROP
+        JsonNode dd = q.path("dragDrop");
+        DragDropVariant dragVariant = null;
+        String variantVal = q.path("variant").asText(null);
+        if (variantVal != null) {
+            try {
+                dragVariant = DragDropVariant.valueOf(variantVal);
+            } catch (IllegalArgumentException e) {
+                throw malformed("Unknown drag-drop variant: " + variantVal, e);
+            }
+        }
+        if (dd.isMissingNode() || dd.isNull()) {
+            throw malformed("Drag-drop question missing 'dragDrop' payload", null);
+        }
+        List<String> items = stringList(dd, "items");
+        List<String> categories = stringList(dd, "categories");
+        List<String> correctOrder = stringList(dd, "correctOrder");
+        Map<String, String> pairs = stringMap(dd, "pairs");
+        DragDropContent content = new DragDropContent(dragVariant, items, categories, pairs, correctOrder);
+        return new GeneratedQuestion(prompt, type, List.of(), null, dragVariant, content, explanation);
+    }
+
+    private List<String> stringList(JsonNode node, String field) {
+        List<String> result = new ArrayList<>();
+        JsonNode arr = node.path(field);
+        if (arr.isArray()) {
+            arr.forEach(n -> result.add(n.asText()));
+        }
+        return result;
+    }
+
+    private Map<String, String> stringMap(JsonNode node, String field) {
+        Map<String, String> result = new java.util.LinkedHashMap<>();
+        JsonNode obj = node.path(field);
+        if (obj.isObject()) {
+            obj.fields().forEachRemaining(e -> result.put(e.getKey(), e.getValue().asText()));
+        }
+        return result;
     }
 
     private String callLlm(String prompt) {
         if (config.getApiKey() == null || config.getApiKey().isBlank()) {
-            throw new ServiceUnavailableException("LLM_API_KEY is not configured.");
+            throw new LlmGenerationException(LlmErrorCause.UNAVAILABLE, true, "LLM_API_KEY is not configured.");
         }
 
         Map<String, Object> body = Map.of(
@@ -119,18 +185,67 @@ public class OpenAiLlmProvider implements LlmProvider {
             JsonNode content = node.path("choices").path(0).path("message").path("content");
             String message = content.asText(null);
             if (message == null || message.isBlank()) {
-                throw new ServiceUnavailableException("The AI service returned an empty response.");
+                throw new LlmGenerationException(LlmErrorCause.MALFORMED, true, "The AI service returned an empty response.");
             }
             return stripCodeFences(message);
-        } catch (ServiceUnavailableException e) {
+        } catch (LlmGenerationException e) {
             throw e;
-        } catch (ResourceAccessException e) {
-            throw new ServiceUnavailableException("The AI service is temporarily unavailable. Please try again later.", e);
-        } catch (RestClientException e) {
-            throw new ServiceUnavailableException("The AI service is temporarily unavailable. Please try again later.", e);
+        } catch (RestClientResponseException e) {
+            int status = e.getRawStatusCode();
+            if (status == 429) {
+                throw new LlmGenerationException(LlmErrorCause.QUOTA, true,
+                        "The AI service quota or rate limit was reached. Try again shortly.", e);
+            }
+            throw new LlmGenerationException(LlmErrorCause.UNAVAILABLE, true,
+                    "The AI service is temporarily unavailable. Please try again shortly.", e);
         } catch (Exception e) {
-            throw new ServiceUnavailableException("The AI service is temporarily unavailable. Please try again later.", e);
+            throw classify(e);
         }
+    }
+
+    /**
+     * Classifies any transport/parse failure into a typed {@link LlmGenerationException}.
+     */
+    private LlmGenerationException classify(Exception e) {
+        if (isTimeout(e)) {
+            return new LlmGenerationException(LlmErrorCause.TIMEOUT, true,
+                    "The AI service took too long to respond. Please try again.", e);
+        }
+        if (isNetwork(e)) {
+            return new LlmGenerationException(LlmErrorCause.NETWORK, true,
+                    "Could not reach the AI service. Check your internet connection and try again.", e);
+        }
+        return new LlmGenerationException(LlmErrorCause.UNAVAILABLE, true,
+                "The AI service is temporarily unavailable. Please try again shortly.", e);
+    }
+
+    private boolean isNetwork(Exception e) {
+        Throwable t = e;
+        while (t != null) {
+            if (t instanceof java.net.ConnectException
+                    || (t.getMessage() != null && (t.getMessage().contains("Connection refused")
+                        || t.getMessage().contains("connect timed out")
+                        || t.getMessage().contains("Unable to resolve")))) {
+                return true;
+            }
+            t = t.getCause();
+        }
+        return false;
+    }
+
+    private boolean isTimeout(Exception e) {
+        Throwable t = e;
+        while (t != null) {
+            if (t instanceof SocketTimeoutException || (t.getMessage() != null && t.getMessage().contains("timed out"))) {
+                return true;
+            }
+            t = t.getCause();
+        }
+        return false;
+    }
+
+    private LlmGenerationException malformed(String message, Throwable cause) {
+        return new LlmGenerationException(LlmErrorCause.MALFORMED, true, message, cause);
     }
 
     /**

@@ -164,7 +164,6 @@
   border-radius: var(--radius-lg);
   border: 1px solid;
   animation: card-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-
   &--correct {
     border-color: rgba(30, 107, 70, 0.35);
     background: var(--success-soft);
@@ -189,5 +188,35 @@
     line-height: 1.6;
     color: var(--body);
     font-size: 0.97rem;
+  }
+}
+
+.retry-spinner {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 1rem;
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+  border: 1px solid var(--hairline);
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.feedback__correct-answer {
+  margin: 0 0 0.7rem;
+  color: var(--body);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* In dark mode the selected/correct/wrong letter fills are pale — swap the
+   white glyph for the dark ink so the badge stays legible (AA). */
+[data-theme='dark'] {
+  .option--selected .option__letter,
+  .option--correct .option__letter,
+  .option--wrong .option__letter {
+    color: var(--canvas);
   }
 }

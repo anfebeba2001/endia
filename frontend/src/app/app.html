@@ -5,6 +5,9 @@
       <span class="brand__dot" aria-hidden="true"></span>
       <span class="brand__name" translate="no">endia</span>
     </a>
+    <button class="theme-toggle" type="button" (click)="toggleTheme()" [attr.aria-label]="theme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'">
+      {{ theme() === 'dark' ? '☀ Light' : '☾ Dark' }}
+    </button>
   </header>
   <main id="main" class="app-shell__main" tabindex="-1">
     <router-outlet></router-outlet>

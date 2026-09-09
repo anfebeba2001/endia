@@ -32,18 +32,16 @@ test.describe('P0 #1 — Full happy path', () => {
     // 4. Subtopics → Snacks
     await page.click('button.primary-btn');
     await page.waitForURL('**/snacks');
-    await page.waitForTimeout(500);
 
-    // 5. Snacks page
+    // 5. Snacks page — progressive one-at-a-time delivery (FR-002)
+    const snackCard = page.locator('.snack-card');
+    await snackCard.first().waitFor({ state: 'visible', timeout: 8000 });
     await expect(page.locator('h1.page__title')).toHaveText('Your Snacks');
-    const snackCards = page.locator('.snack-card');
-    await expect(snackCards).toHaveCount(3);
-    for (let i = 0; i < 3; i++) {
-      await expect(snackCards.nth(i).locator('.snack-card__concept')).toBeVisible();
-      await expect(snackCards.nth(i).locator('.snack-card__metaphor')).toBeVisible();
-      await expect(snackCards.nth(i).locator('.snack-card__why')).toBeVisible();
-      await expect(snackCards.nth(i).locator('.quiz-btn')).toHaveText('Start Quiz');
-    }
+    await expect(snackCard).toHaveCount(1);
+    await expect(snackCard.locator('.snack-card__concept')).toBeVisible();
+    await expect(snackCard.locator('.snack-card__metaphor')).toBeVisible();
+    await expect(snackCard.locator('.snack-card__why')).toBeVisible();
+    await expect(snackCard.locator('.quiz-btn')).toHaveText('Start Quiz');
 
     // 6. Snacks → Quiz
     await page.click('.quiz-btn');

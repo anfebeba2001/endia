@@ -42,24 +42,23 @@ test.describe('P1 #9 — Loading states', () => {
   });
 
   test('snacks page shows loading text during generation', async ({ mockPage: page }) => {
-    // Slow down snacks/generate response
-    await page.unroute('**/api/snacks/generate');
-    await page.route('**/api/snacks/generate', async (route) => {
-      await new Promise((r) => setTimeout(r, 500));
+    // Slow down the batch creation to observe the loading state
+    await page.unroute('**/api/batches');
+    await page.route('**/api/batches', async (route) => {
+      if (route.request().method() !== 'POST') {
+        return route.continue();
+      }
+      await new Promise((r) => setTimeout(r, 800));
       const body = JSON.parse(route.request().postData() || '{}');
-      const snacks = (body.subtopicIds || []).map((id: string, i: number) => ({
-        id: `snack-${i}`,
-        subtopicId: id,
-        subtopicName: `Subtopic ${i + 1}`,
-        concept: `Concept ${i + 1}`,
-        metaphor: `Metaphor ${i + 1}`,
-        whyItMatters: `Why ${i + 1}`,
-        related: ['tag1'],
-      }));
       await route.fulfill({
-        status: 200,
+        status: 202,
         contentType: 'application/json',
-        body: JSON.stringify({ snacks }),
+        body: JSON.stringify({
+          batchId: 'test-batch-001',
+          themeId: 'test-theme-001',
+          status: 'IN_PROGRESS',
+          items: (body.subtopicIds || []).map((id: string) => ({ subtopicId: id, snackStatus: 'PENDING', quizStatus: 'PENDING' })),
+        }),
       });
     });
 

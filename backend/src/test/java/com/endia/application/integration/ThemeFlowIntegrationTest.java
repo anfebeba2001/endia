@@ -1,5 +1,9 @@
 package com.endia.application.integration;
 
+import com.endia.application.service.SubtopicService;
+import com.endia.domain.enums.SubtopicSource;
+import com.endia.domain.model.Subtopic;
+import com.endia.domain.model.Theme;
 import com.endia.infrastructure.persistence.JpaSnackRepository;
 import com.endia.infrastructure.persistence.JpaSubtopicRepository;
 import com.endia.infrastructure.persistence.JpaThemeRepository;
@@ -13,11 +17,13 @@ import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Integration test for theme -> subtopics flow using a real MySQL container.
- * Requires Docker with API version compatible with Testcontainers.
  * Run with: mvn verify -Pintegration
  */
 @SpringBootTest
@@ -46,9 +52,39 @@ class ThemeFlowIntegrationTest {
     private JpaSubtopicRepository subtopicRepository;
     @Autowired
     private JpaSnackRepository snackRepository;
+    @Autowired
+    private SubtopicService subtopicService;
 
     @Test
     void contextLoads() {
         assertEquals(0, themeRepository.count());
+    }
+
+    // ---- T076: user-proposed subtopic persisted with source + dedup ----
+
+    @Test
+    void addSubtopicsPersistsUserProposedWithSource() {
+        Theme theme = new Theme("Photosynthesis");
+        theme = themeRepository.save(theme);
+
+        SubtopicService.AddResult result = subtopicService.addSubtopics(theme.getId(), List.of("Photorespiration"));
+
+        assertEquals(1, result.added().size());
+        Subtopic persisted = subtopicRepository.findById(result.added().get(0).getId()).orElseThrow();
+        assertEquals(SubtopicSource.USER_PROPOSED, persisted.getSource());
+    }
+
+    @Test
+    void addSubtopicsDeduplicatesAgainstExistingAiSuggestion() {
+        Theme theme = new Theme("Photosynthesis");
+        theme = themeRepository.save(theme);
+        Subtopic existing = new Subtopic(theme, "Calvin cycle");
+        existing = subtopicRepository.save(existing);
+
+        SubtopicService.AddResult result = subtopicService.addSubtopics(theme.getId(), List.of("  CALVIN   CYCLE "));
+
+        assertTrue(result.added().isEmpty());
+        assertEquals(1, result.duplicates().size());
+        assertEquals(existing.getId(), subtopicRepository.findByThemeId(theme.getId()).get(0).getId());
     }
 }

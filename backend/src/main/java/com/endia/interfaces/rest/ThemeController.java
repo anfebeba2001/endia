@@ -27,7 +27,7 @@ public class ThemeController {
         ThemeService.ThemeSuggestResult result = themeService.suggestSubtopics(request.prompt());
 
         List<ThemeSuggestApiResponse.SubtopicItem> items = result.subtopics().stream()
-                .map(s -> new ThemeSuggestApiResponse.SubtopicItem(s.getId(), s.getName()))
+                .map(s -> new ThemeSuggestApiResponse.SubtopicItem(s.getId(), s.getName(), s.getSource().name()))
                 .toList();
 
         return ResponseEntity.ok(new ThemeSuggestApiResponse(result.themeId(), items));

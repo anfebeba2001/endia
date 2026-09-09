@@ -2,6 +2,7 @@ package com.endia.application.service;
 
 import com.endia.application.port.LlmProvider;
 import com.endia.domain.exception.EntityNotFoundException;
+import com.endia.domain.exception.LlmGenerationException;
 import com.endia.domain.exception.ServiceUnavailableException;
 import com.endia.domain.model.Snack;
 import com.endia.domain.model.Subtopic;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 @Service
 public class SnackService {
@@ -50,12 +52,34 @@ public class SnackService {
             Subtopic subtopic = subtopicRepository.findById(subtopicId)
                     .orElseThrow(() -> new EntityNotFoundException("Subtopic", subtopicId));
 
-            Snack snack = generateValidSnack(themePrompt, subtopic.getName());
-            snack.setSubtopic(subtopic);
-            snackRepository.save(snack);
+            Snack snack = generateSingleSnack(subtopic);
             snacks.add(snack);
         }
         return snacks;
+    }
+
+    /**
+     * Generates and persists a single snack for a subtopic (reused by the batch worker).
+     */
+    @Transactional
+    public Snack generateSingleSnack(Subtopic subtopic) {
+        String themePrompt = subtopic.getTheme().getPrompt();
+        Snack snack = generateValidSnack(themePrompt, subtopic.getName());
+        snack.setSubtopic(subtopic);
+        snackRepository.save(snack);
+        return snack;
+    }
+
+    /**
+     * Generates a single snack and invokes the callback once it is persisted.
+     */
+    @Transactional
+    public Snack generateSingleSnack(Subtopic subtopic, Consumer<Snack> onComplete) {
+        Snack snack = generateSingleSnack(subtopic);
+        if (onComplete != null) {
+            onComplete.accept(snack);
+        }
+        return snack;
     }
 
     /**
@@ -93,7 +117,7 @@ public class SnackService {
     private LlmProvider.GeneratedSnack callGenerateSnack(String theme, String subtopicName) {
         try {
             return llmProvider.generateSnack(theme, subtopicName);
-        } catch (ServiceUnavailableException e) {
+        } catch (LlmGenerationException e) {
             throw e;
         } catch (Exception e) {
             throw new ServiceUnavailableException("The AI service is temporarily unavailable. Please try again later.", e);

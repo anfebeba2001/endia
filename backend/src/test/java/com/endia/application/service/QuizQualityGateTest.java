@@ -1,10 +1,13 @@
 package com.endia.application.service;
 
 import com.endia.application.port.LlmProvider;
+import com.endia.domain.enums.DragDropVariant;
+import com.endia.domain.model.DragDropContent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -22,7 +25,15 @@ class QuizQualityGateTest {
     }
 
     private LlmProvider.GeneratedQuestion question(String prompt, List<String> options, int correctIndex, String explanation) {
-        return new LlmProvider.GeneratedQuestion(prompt, options, correctIndex, explanation);
+        return new LlmProvider.GeneratedQuestion(prompt,
+                LlmProvider.GeneratedQuestion.QuestionType.MULTIPLE_CHOICE,
+                options, correctIndex, null, null, explanation);
+    }
+
+    private LlmProvider.GeneratedQuestion dragDrop(String prompt, DragDropContent content, String explanation) {
+        return new LlmProvider.GeneratedQuestion(prompt,
+                LlmProvider.GeneratedQuestion.QuestionType.DRAG_DROP,
+                List.of(), null, content.variant(), content, explanation);
     }
 
     @Test
@@ -119,5 +130,71 @@ class QuizQualityGateTest {
                 List.of("A very long option that is quite detailed and verbose", "Short", "Four sided shape", "Round shape"),
                 0, "Explanation");
         assertFalse(gate.validate(q));
+    }
+
+    // ---- T068: drag-drop validation rules ----
+
+    @Test
+    void validDragDropSequencingPasses() {
+        var content = new DragDropContent(DragDropVariant.SEQUENCING,
+                List.of("A", "B", "C"), List.of(), Map.of(), List.of("A", "B", "C"));
+        assertTrue(gate.validate(dragDrop("Order them.", content, "Explanation.")));
+    }
+
+    @Test
+    void emptyDragDropItemsRejected() {
+        var content = new DragDropContent(DragDropVariant.SEQUENCING,
+                List.of(), List.of(), Map.of(), List.of());
+        assertFalse(gate.validate(dragDrop("Order them.", content, "Explanation.")));
+    }
+
+    @Test
+    void duplicateDragDropItemsRejected() {
+        var content = new DragDropContent(DragDropVariant.SEQUENCING,
+                List.of("A", "A", "C"), List.of(), Map.of(), List.of("A", "A", "C"));
+        assertFalse(gate.validate(dragDrop("Order them.", content, "Explanation.")));
+    }
+
+    @Test
+    void incompleteCorrectOrderRejected() {
+        var content = new DragDropContent(DragDropVariant.SEQUENCING,
+                List.of("A", "B", "C"), List.of(), Map.of(), List.of("A", "B"));
+        assertFalse(gate.validate(dragDrop("Order them.", content, "Explanation.")));
+    }
+
+    @Test
+    void badVariantNullRejected() {
+        var content = new DragDropContent(null, List.of("A", "B"), List.of(), Map.of(), List.of("A", "B"));
+        assertFalse(gate.validate(dragDrop("Order them.", content, "Explanation.")));
+    }
+
+    @Test
+    void classificationRequiresEveryItemCategorized() {
+        var content = new DragDropContent(DragDropVariant.CLASSIFICATION,
+                List.of("Earth", "Mars", "Jupiter"), List.of("Rocky", "Gas"),
+                Map.of("Earth", "Rocky", "Mars", "Rocky"), List.of());
+        assertFalse(gate.validate(dragDrop("Classify.", content, "Explanation.")));
+    }
+
+    @Test
+    void classificationCategoriesEmptyRejected() {
+        var content = new DragDropContent(DragDropVariant.CLASSIFICATION,
+                List.of("Earth", "Mars"), List.of(), Map.of("Earth", "X", "Mars", "X"), List.of());
+        assertFalse(gate.validate(dragDrop("Classify.", content, "Explanation.")));
+    }
+
+    @Test
+    void matchingRequiresEveryLeftKeyHasValue() {
+        var content = new DragDropContent(DragDropVariant.MATCHING,
+                List.of("H2O", "CO2", "ATP"), List.of(), Map.of("H2O", "donor", "CO2", "source"), List.of());
+        assertFalse(gate.validate(dragDrop("Match.", content, "Explanation.")));
+    }
+
+    @Test
+    void dragDropFirstFailureReasonDetail() {
+        var content = new DragDropContent(DragDropVariant.SEQUENCING,
+                List.of("A", "B"), List.of(), Map.of(), List.of("A"));
+        String reason = gate.firstFailureReason(dragDrop("Order.", content, "Explanation."));
+        assertNotNull(reason);
     }
 }

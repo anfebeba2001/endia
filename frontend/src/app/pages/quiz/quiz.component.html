@@ -25,33 +25,57 @@
 
     <h2 class="question">{{ question.prompt }}</h2>
 
-    <div class="options">
-      @for (option of question.options; track $index; let i = $index) {
-        <button
-          class="option"
-          [class.option--selected]="selectedOption() === i"
-          [class.option--correct]="feedback() && feedback()!.correctIndex === i"
-          [class.option--wrong]="feedback() && !feedback()!.correct && selectedOption() === i && feedback()!.correctIndex !== i"
-          [disabled]="submitting() || feedback() !== null"
-          (click)="selectOption(i)"
-        >
-          <span class="option__letter">{{ 'ABCD'[i] }}</span>
-          <span class="option__text">{{ option }}</span>
-          @if (feedback() && feedback()!.correctIndex === i) {
-            <span class="option__badge">✓</span>
-          }
-          @if (feedback() && !feedback()!.correct && selectedOption() === i && feedback()!.correctIndex !== i) {
-            <span class="option__badge">✗</span>
-          }
-        </button>
-      }
-    </div>
+    @if (retrying()) {
+      <div class="retry-spinner" role="status" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <span>Retrying…</span>
+      </div>
+    }
+
+    @if (question.type === 'DRAG_DROP') {
+      <app-drag-drop-question
+        #dragDrop
+        [variant]="question.variant ?? 'SEQUENCING'"
+        [items]="question.dragDrop?.items ?? []"
+        [categories]="question.dragDrop?.categories ?? []"
+        [rightItems]="matchingRightItems(question)"
+      ></app-drag-drop-question>
+
+      <button class="primary-btn" [disabled]="submitting() || feedback() !== null" (click)="submitDragDrop()">
+        {{ submitting() ? 'Checking…' : 'Submit arrangement' }}
+      </button>
+    } @else {
+      <div class="options">
+        @for (option of question.options; track $index; let i = $index) {
+          <button
+            class="option"
+            [class.option--selected]="selectedOption() === i"
+            [class.option--correct]="feedback() && feedback()!.correctIndex === i"
+            [class.option--wrong]="feedback() && !feedback()!.correct && selectedOption() === i && feedback()!.correctIndex !== i"
+            [disabled]="submitting() || feedback() !== null"
+            (click)="selectOption(i)"
+          >
+            <span class="option__letter">{{ 'ABCD'[i] }}</span>
+            <span class="option__text">{{ option }}</span>
+            @if (feedback() && feedback()!.correctIndex === i) {
+              <span class="option__badge">✓</span>
+            }
+            @if (feedback() && !feedback()!.correct && selectedOption() === i && feedback()!.correctIndex !== i) {
+              <span class="option__badge">✗</span>
+            }
+          </button>
+        }
+      </div>
+    }
 
     @if (feedback(); as fb) {
       <div class="feedback" [class.feedback--correct]="fb.correct" [class.feedback--wrong]="!fb.correct" role="status">
         <div class="feedback__bar">
           <strong>{{ fb.correct ? 'Correct! +' + fb.xpEarned + ' XP' : 'Not quite' }}</strong>
         </div>
+        @if (fb.correctArrangement && fb.correctArrangement.length) {
+          <p class="feedback__correct-answer"><strong>Correct arrangement:</strong> {{ fb.correctArrangement.join(' → ') }}</p>
+        }
         <p class="feedback__explanation">{{ fb.explanation }}</p>
         <button class="primary-btn" (click)="next()">
           {{ currentIndex() + 1 >= appState.quizQuestions().length ? 'See results' : 'Next question' }}

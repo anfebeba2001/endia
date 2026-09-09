@@ -1,14 +1,16 @@
-import { ChangeDetectionStrategy, Component, Signal, computed, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Signal, ViewChild, computed, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { AppStateService } from '../../services/app-state.service';
 import { QuizService } from '../../services/quiz.service';
 import { ErrorService } from '../../services/error.service';
 import { QuizQuestion, QuizAnswerResponse } from '../../models/quiz.model';
 import { Subtopic } from '../../models/theme.model';
+import { DragDropQuestionComponent } from '../../components/drag-drop-question/drag-drop-question.component';
 
 @Component({
   selector: 'app-quiz',
   standalone: true,
+  imports: [DragDropQuestionComponent],
   templateUrl: './quiz.component.html',
   styleUrl: './quiz.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -18,9 +20,11 @@ export class QuizComponent {
   readonly errorMessage = signal<string | null>(null);
   readonly currentIndex = signal(0);
   readonly submitting = signal(false);
+  readonly retrying = signal(false);
   readonly selectedOption = signal<number | null>(null);
   readonly feedback = signal<QuizAnswerResponse | null>(null);
   readonly results = signal<QuizAnswerResponse[]>([]);
+  @ViewChild('dragDrop') dragDrop!: DragDropQuestionComponent;
 
   readonly currentQuestion: Signal<QuizQuestion | null> = computed(() => {
     const questions = this.appState.quizQuestions();
@@ -46,6 +50,11 @@ export class QuizComponent {
     return this.appState.selectedSubtopic();
   }
 
+  /** Right-column options for MATCHING (client-received material only). */
+  matchingRightItems(question: QuizQuestion): string[] {
+    return question.dragDrop?.rightItems ?? [];
+  }
+
   private get themeId(): string | null {
     return this.appState.theme()?.themeId ?? null;
   }
@@ -58,15 +67,28 @@ export class QuizComponent {
       return;
     }
 
+    // FR-003/SC-002: if this subtopic's quiz was prefetched during batch snack reading,
+    // consume it directly with no regeneration call and no loading spinner.
+    const prefetched = this.appState.getPrefetchedQuiz(subtopic.id);
+    if (prefetched.length > 0) {
+      this.appState.quizQuestions.set(prefetched);
+      this.appState.quizSubTopicId.set(subtopic.id);
+      this.loadingQuestions.set(false);
+      return;
+    }
+
     if (this.appState.quizQuestions().length === 0) {
+      this.retrying.set(true);
       this.quizService.generate(themeId, subtopic.id, 4).subscribe({
         next: (response) => {
           this.appState.quizQuestions.set(response.questions);
           this.appState.quizSubTopicId.set(subtopic.id);
           this.loadingQuestions.set(false);
+          this.retrying.set(false);
         },
         error: (err) => {
           this.loadingQuestions.set(false);
+          this.retrying.set(false);
           this.errorMessage.set(this.errorService.getMessage(err));
         },
       });
@@ -83,13 +105,26 @@ export class QuizComponent {
     this.submitAnswer(index);
   }
 
-  private submitAnswer(index: number): void {
+  /** Drag-drop: confirm arrangement from the child component. */
+  submitDragDrop(): void {
+    if (this.submitting() || this.feedback() !== null || !this.dragDrop) {
+      return;
+    }
+    const arrangement = this.dragDrop.getArrangement();
+    if (!arrangement || arrangement.length === 0) {
+      return;
+    }
+    this.submitAnswer(undefined, arrangement);
+  }
+
+  private submitAnswer(index?: number, arrangement?: string[]): void {
     const question = this.currentQuestion();
     if (!question) {
       return;
     }
     this.submitting.set(true);
-    this.quizService.answer(question.id, index).subscribe({
+    this.retrying.set(true);
+    this.quizService.answer(question.id, index, arrangement).subscribe({
       next: (answer) => {
         this.feedback.set(answer);
         const updated = [...this.results()];
@@ -101,9 +136,11 @@ export class QuizComponent {
         }
         this.results.set(updated);
         this.submitting.set(false);
+        this.retrying.set(false);
       },
       error: (err) => {
         this.submitting.set(false);
+        this.retrying.set(false);
         this.errorMessage.set(this.errorService.getMessage(err));
       },
     });

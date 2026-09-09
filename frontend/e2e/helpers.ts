@@ -93,14 +93,33 @@ export async function setupQuizAnswerMock(page: Page, answerOverrides?: Record<s
   await page.route('**/api/quiz/answer', async (route: Route) => {
     const body = JSON.parse(route.request().postData() || '{}');
     const k = key[body.questionId] || { correctIndex: 0, explanation: 'Test explanation.' };
+    if (body.arrangement) {
+      // drag-drop answers always correct in the mock
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          questionId: body.questionId,
+          type: 'DRAG_DROP',
+          correct: true,
+          correctIndex: null,
+          correctArrangement: body.arrangement,
+          explanation: 'Test explanation.',
+          xpEarned: 10,
+        }),
+      });
+      return;
+    }
     const correct = body.chosenIndex === k.correctIndex;
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         questionId: body.questionId,
+        type: 'MULTIPLE_CHOICE',
         correct,
         correctIndex: k.correctIndex,
+        correctArrangement: null,
         explanation: k.explanation,
         xpEarned: correct ? 10 : 0,
       }),
@@ -144,9 +163,72 @@ export async function setupQuizSummaryMock(
 export async function setupAllMocks(page: Page) {
   await setupThemesSuggestMock(page);
   await setupSnacksGenerateMock(page);
+  await setupBatchMock(page);
   await setupQuizGenerateMock(page);
   await setupQuizAnswerMock(page);
   await setupQuizSummaryMock(page);
+}
+
+/** Build a snack object for a subtopic id (mirrors backend snack shape). */
+function buildSnack(id: string, i: number) {
+  return {
+    id: `snack-${i}`,
+    subtopicId: id,
+    subtopicName: SUBTOPICS.find((s) => s.id === id)?.name ?? `Subtopic ${i + 1}`,
+    concept: `This is the concept explanation for subtopic ${i + 1}. It covers the core idea in one paragraph.`,
+    metaphor: `Imagine it like a kitchen — the ingredients are raw materials and the chef is the enzyme that transforms them.`,
+    whyItMatters: `Understanding this prevents the common misconception that plants only photosynthesize during the day.`,
+    related: ['ATP synthase', 'Electron transport', 'Photophosphorylation'],
+  };
+}
+
+/**
+ * Mock the batch endpoints used by the progressive snacks page (FR-001..004).
+ * POST /api/batches → returns 202 immediately; GET /api/batches/{id} → returns
+ * a COMPLETE status with every snack READY (so the page fully renders and polling stops).
+ */
+export async function setupBatchMock(page: Page, opts?: { snackStatus?: string }) {
+  const snackStatus = opts?.snackStatus ?? 'READY';
+  await page.route('**/api/batches', async (route: Route) => {
+    const body = JSON.parse(route.request().postData() || '{}');
+    const subIds: string[] = body.subtopicIds || [];
+    await route.fulfill({
+      status: 202,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        batchId: 'test-batch-001',
+        themeId: THEME_ID,
+        status: 'IN_PROGRESS',
+        items: subIds.map((id) => ({ subtopicId: id, snackStatus: 'PENDING', quizStatus: 'PENDING' })),
+      }),
+    });
+  });
+  await page.route('**/api/batches/*', async (route: Route) => {
+    const url = new URL(route.request().url());
+    const requestedIds = url.search ? [] : undefined;
+    let items = [];
+    // Reconstruct items from the batch request captured above is complex; derive from subtopics.
+    items = SUBTOPICS.map((s, i) => ({
+      subtopicId: s.id,
+      subtopicName: s.name,
+      snackStatus,
+      snack: snackStatus === 'READY' ? buildSnack(s.id, i) : null,
+      snackCause: snackStatus === 'FAILED' ? 'QUOTA' : null,
+      quizStatus: 'READY',
+      quizCause: null,
+    }));
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        batchId: 'test-batch-001',
+        themeId: THEME_ID,
+        status: snackStatus === 'READY' ? 'COMPLETE' : 'IN_PROGRESS',
+        retrying: false,
+        items,
+      }),
+    });
+  });
 }
 
 // ─── Angular Helpers ─────────────────────────────────────────────────────────
@@ -213,8 +295,8 @@ export async function goToSubtopics(page: Page, theme = 'Photosynthesis') {
 export async function goToSnacks(page: Page) {
   await page.click('button.primary-btn');
   await page.waitForURL('**/snacks');
-  // Wait for snacks to load (API mock returns immediately but Angular needs a tick)
-  await page.waitForTimeout(500);
+  // Batch is created then polled (~1.5s interval); wait for the first READY snack card.
+  await page.locator('.snack-card').waitFor({ state: 'visible', timeout: 8000 });
 }
 
 /** From /snacks, click first "Start Quiz" → land on /quiz */

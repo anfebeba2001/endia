@@ -28,6 +28,27 @@
       }
     </div>
 
+    <div class="add-subtopic">
+      <h3 class="add-subtopic__label">Add your own focus area</h3>
+      <div class="add-subtopic__row">
+        <input
+          class="add-subtopic__input"
+          type="text"
+          [value]="customName()"
+          placeholder="e.g. C4 photosynthesis"
+          (input)="customName.set($any($event.target).value)"
+          (keyup.enter)="addCustom()"
+          maxlength="200"
+        />
+        <button class="ghost-btn" [disabled]="adding() || !customName().trim()" (click)="addCustom()">
+          {{ adding() ? 'Adding…' : 'Add' }}
+        </button>
+      </div>
+      @if (addFeedback(); as fb) {
+        <p class="add-subtopic__feedback">{{ fb }}</p>
+      }
+    </div>
+
     <footer class="page__footer">
       <button
         class="primary-btn"

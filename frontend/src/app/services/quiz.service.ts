@@ -17,10 +17,12 @@ export class QuizService {
     });
   }
 
-  answer(questionId: string, chosenIndex: number): Observable<QuizAnswerResponse> {
+  /** Answer a question: MCQ via chosenIndex, drag-drop via arrangement (FR-008). */
+  answer(questionId: string, chosenIndex?: number, arrangement?: string[]): Observable<QuizAnswerResponse> {
     return this.http.post<QuizAnswerResponse>(`${this.baseUrl}/answer`, {
       questionId,
-      chosenIndex,
+      chosenIndex: chosenIndex ?? null,
+      arrangement: arrangement ?? null,
     });
   }
 

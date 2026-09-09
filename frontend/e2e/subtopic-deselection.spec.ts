@@ -5,7 +5,7 @@ test.describe('P0 #3 — Subtopic deselection', () => {
     // Track API calls via request event
     const capturedRequests: { url: string; body: any }[] = [];
     page.on('request', (req) => {
-      if (req.url().includes('/api/snacks/generate')) {
+      if (req.url().includes('/api/batches') && req.method() === 'POST') {
         try {
           capturedRequests.push({
             url: req.url(),
@@ -53,7 +53,7 @@ test.describe('P0 #3 — Subtopic deselection', () => {
     await page.waitForURL('**/snacks');
 
     // Wait for the request to be captured
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(700);
 
     // Verify the API was called with the correct subtopic IDs
     expect(capturedRequests.length).toBeGreaterThan(0);

@@ -1,5 +1,6 @@
 package com.endia.infrastructure.persistence;
 
+import com.endia.domain.enums.QuestionType;
 import com.endia.domain.model.QuizQuestion;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -9,4 +10,6 @@ import java.util.UUID;
 public interface JpaQuizQuestionRepository extends JpaRepository<QuizQuestion, UUID> {
 
     List<QuizQuestion> findBySubtopicId(UUID subtopicId);
+
+    List<QuizQuestion> findBySubtopicIdAndType(UUID subtopicId, QuestionType type);
 }

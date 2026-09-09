@@ -15,6 +15,10 @@
     background: rgba(244, 242, 235, 0.88);
     backdrop-filter: saturate(160%) blur(12px);
     border-bottom: 1px solid var(--hairline);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
   }
 
   &__main {
@@ -89,5 +93,34 @@
 
   &:hover .brand__dot {
     background: var(--accent-deep);
+  }
+}
+
+.theme-toggle {
+  padding: 0.42rem 0.9rem;
+  border: 1.5px solid var(--hairline-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface-card);
+  color: var(--ink);
+  font: 600 0.82rem/1.3 var(--font-body);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+
+  &:hover {
+    border-color: var(--accent);
+    background: var(--surface-soft);
+  }
+}
+
+[data-theme='dark'] {
+  .app-shell__header {
+    background: rgba(33, 29, 24, 0.88);
+  }
+
+  .skip-link {
+    color: var(--canvas);
   }
 }

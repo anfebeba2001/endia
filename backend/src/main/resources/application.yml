@@ -25,6 +25,15 @@ llm:
   model: ${LLM_MODEL:gpt-4o-mini}
   timeout-seconds: 30
 
+# Batch / async retry configuration (FR-016/017/018)
+batch:
+  retry:
+    max-attempts: ${BATCH_RETRY_MAX_ATTEMPTS:3}
+    initial-backoff-ms: ${BATCH_RETRY_INITIAL_BACKOFF_MS:1000}
+    backoff-factor: ${BATCH_RETRY_BACKOFF_FACTOR:2.0}
+    max-backoff-ms: ${BATCH_RETRY_MAX_BACKOFF_MS:10000}
+    jitter-ratio: ${BATCH_RETRY_JITTER_RATIO:0.2}
+
 # CORS for development (Angular at 4200)
 app:
   cors:

@@ -1,5 +1,8 @@
 package com.endia.application.port;
 
+import com.endia.domain.enums.DragDropVariant;
+import com.endia.domain.model.DragDropContent;
+
 import java.util.List;
 
 /**
@@ -20,13 +23,23 @@ public interface LlmProvider {
     GeneratedSnack generateSnack(String theme, String subtopicName);
 
     /**
-     * Generate a list of quiz questions for a subtopic within a theme.
+     * Generate a list of quiz questions for a subtopic within a theme, mixing
+     * multiple-choice and drag-drop questions of the given {@code variant}.
      */
-    List<GeneratedQuestion> generateQuiz(String theme, String subtopicName, int count);
+    List<GeneratedQuestion> generateQuiz(String theme, String subtopicName, int count, DragDropVariant variant);
 
     record GeneratedSnack(String concept, String metaphor, String whyItMatters, List<String> related) {
     }
 
-    record GeneratedQuestion(String prompt, List<String> options, int correctIndex, String explanation) {
+    record GeneratedQuestion(
+            String prompt,
+            QuestionType type,
+            List<String> options,
+            Integer correctIndex,
+            DragDropVariant variant,
+            DragDropContent dragDropContent,
+            String explanation) {
+
+        public enum QuestionType { MULTIPLE_CHOICE, DRAG_DROP }
     }
 }
