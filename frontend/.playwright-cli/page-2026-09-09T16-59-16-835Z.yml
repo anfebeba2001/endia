@@ -1,0 +1,16 @@
+- generic [ref=e3]:
+  - link "Skip to content" [ref=e4] [cursor=pointer]:
+    - /url: "#main"
+  - banner [ref=e5]:
+    - link "endia" [ref=e6] [cursor=pointer]:
+      - /url: /
+  - main [ref=e9]:
+    - generic [ref=e64]:
+      - generic [ref=e65]:
+        - button "← Back to subtopics" [ref=e66] [cursor=pointer]
+        - generic [ref=e67]: Step 3 / 5 · Knowledge snacks
+        - heading "Your Snacks" [level=1] [ref=e68]
+        - paragraph [ref=e69]: Quick, memorable cards to build the foundation before the quiz.
+      - paragraph [ref=e72]: Warming up the knowledge oven…
+  - contentinfo [ref=e32]:
+    - paragraph [ref=e33]: endia — learn anything, bite by bite

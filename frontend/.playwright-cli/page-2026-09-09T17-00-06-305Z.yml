@@ -1,0 +1,28 @@
+- generic [ref=f1e3]:
+  - link "Skip to content" [ref=f1e4] [cursor=pointer]:
+    - /url: "#main"
+  - banner [ref=f1e5]:
+    - link "endia" [ref=f1e6] [cursor=pointer]:
+      - /url: /
+  - main [ref=f1e9]:
+    - generic [ref=f1e12]:
+      - generic [ref=f1e13]:
+        - heading "Learn anything, bite by bite." [level=1] [ref=f1e14]
+        - paragraph [ref=f1e15]: Enter a theme and we'll break it into focused subtopics, explain them with memorable snacks, and quiz you with questions that actually make you think.
+        - generic [ref=f1e16]:
+          - textbox "Theme to study" [ref=f1e17]:
+            - /placeholder: e.g. Photosynthesis, The 90s, Rust borrow checker…
+          - button "Suggest subtopics" [ref=f1e18] [cursor=pointer]
+      - generic [ref=f1e20]:
+        - generic [ref=f1e21]:
+          - generic [ref=f1e22]: concept
+          - generic [ref=f1e23]: Photosynthesis, distilled
+        - generic [ref=f1e24]:
+          - generic [ref=f1e25]: metaphor
+          - generic [ref=f1e26]: Heat + time = rise
+        - generic [ref=f1e27]:
+          - generic [ref=f1e28]: quiz
+          - generic [ref=f1e29]: Ready when you are
+        - generic [ref=f1e31]: +10 XP
+  - contentinfo [ref=f1e32]:
+    - paragraph [ref=f1e33]: endia — learn anything, bite by bite

@@ -1,0 +1,60 @@
+<section class="home">
+  <div class="hero">
+    <div class="hero__content">
+      <h1 class="hero__title">Learn anything, bite by bite.</h1>
+      <p class="hero__subtitle">
+        Enter a theme and we'll break it into focused subtopics, explain them with
+        memorable snacks, and quiz you with questions that actually make you think.
+      </p>
+
+      <form class="search" (ngSubmit)="onSubmit()">
+        <input
+          class="search__input"
+          type="text"
+          name="theme"
+          autocomplete="off"
+          [formControl]="themeControl"
+          placeholder="e.g. Photosynthesis, The 90s, Rust borrow checker…"
+          aria-label="Theme to study"
+        />
+        <button
+          class="search__button"
+          type="submit"
+          [disabled]="loading()"
+        >
+          {{ loading() ? 'Thinking…' : 'Suggest subtopics' }}
+        </button>
+      </form>
+
+      @if (errorMessage(); as msg) {
+        <div class="error-banner" role="alert">{{ msg }}</div>
+      }
+
+      @if (loading()) {
+        <div class="loading" aria-live="polite">
+          <div class="spinner" aria-hidden="true"></div>
+          <p>Asking the expert for great subtopics…</p>
+        </div>
+      }
+    </div>
+
+    <div class="hero__plate" aria-hidden="true">
+      <div class="plate">
+        <div class="plate__card plate__card--one">
+          <span class="plate__kicker">concept</span>
+          <span class="plate__line">Photosynthesis, distilled</span>
+        </div>
+        <div class="plate__card plate__card--two">
+          <span class="plate__kicker">metaphor</span>
+          <span class="plate__line">Heat + time = rise</span>
+        </div>
+        <div class="plate__card plate__card--three">
+          <span class="plate__kicker">quiz</span>
+          <span class="plate__line">Ready when you are</span>
+        </div>
+        <span class="plate__bite"></span>
+        <span class="plate__xp">+10 XP</span>
+      </div>
+    </div>
+  </div>
+</section>

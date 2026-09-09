@@ -1,0 +1,67 @@
+<section class="page">
+  <header class="page__header">
+    <button class="link-btn" (click)="goBack()">← Back to subtopics</button>
+    <span class="step-chip">Step 3 / 5 · Knowledge snacks</span>
+    <h1 class="page__title">Your Snacks</h1>
+    <p class="page__subtitle">Quick, memorable cards to build the foundation before the quiz.</p>
+  </header>
+
+  @if (errorMessage(); as msg) {
+    <div class="error-banner" role="alert">{{ msg }}</div>
+  }
+
+  @if (generating()) {
+    <div class="loading state" aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>Warming up the knowledge oven…</p>
+    </div>
+  }
+
+  @if (!hasSnacks && !generating() && !errorMessage()) {
+    <div class="empty-state">
+      <span class="empty-state__mark" aria-hidden="true"></span>
+      <h2 class="empty-state__title">The counter is empty</h2>
+      <p class="empty-state__text">No snacks were prepared. Head back and generate them from your selected subtopics.</p>
+      <button class="empty-state__cta" (click)="goBack()">← Back to subtopics</button>
+    </div>
+  }
+
+  @if (hasSnacks && !generating()) {
+    <div class="snack-grid">
+      @for (snack of snacks; track snack.id) {
+        <article class="snack-card">
+          <div class="snack-card__top">
+            <span class="snack-card__chip">{{ snack.subtopicName }}</span>
+            <button
+              class="quiz-btn"
+              [disabled]="loadingSubtopic() !== null"
+              (click)="startQuiz(snack.subtopicId)"
+            >
+              {{ loadingSubtopic() === snack.subtopicId ? 'Loading…' : 'Start Quiz' }}
+            </button>
+          </div>
+
+          <h2 class="snack-card__concept-title">Concept</h2>
+          <p class="snack-card__concept">{{ snack.concept }}</p>
+
+          <h2 class="snack-card__concept-title">Metaphor</h2>
+          <p class="snack-card__metaphor">{{ snack.metaphor }}</p>
+
+          <h2 class="snack-card__concept-title">Why it matters</h2>
+          <p class="snack-card__why">{{ snack.whyItMatters }}</p>
+
+          @if (snack.related.length) {
+            <div class="snack-card__related">
+              <h3>Related</h3>
+              <div class="tags">
+                @for (rel of snack.related; track rel) {
+                  <span class="tag">{{ rel }}</span>
+                }
+              </div>
+            </div>
+          }
+        </article>
+      }
+    </div>
+  }
+</section>

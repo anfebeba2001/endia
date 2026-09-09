@@ -1,0 +1,41 @@
+<section class="page">
+  <header class="page__header">
+    <button class="link-btn" (click)="goBack()">← Back</button>
+    <span class="step-chip">Step 2 / 5 · Focus areas</span>
+    <h1 class="page__title">Pick what to study</h1>
+    <p class="page__subtitle">We broke your theme into these focus areas. Select the ones you want to dive into.</p>
+  </header>
+
+  @if (subtopics.length === 0) {
+    <div class="empty-state">
+      <span class="empty-state__mark" aria-hidden="true"></span>
+      <h2 class="empty-state__title">No focus areas yet</h2>
+      <p class="empty-state__text">Start a new theme and we'll cut it into bite-size subtopics.</p>
+      <button class="empty-state__cta" (click)="goBack()">Start from home</button>
+    </div>
+  } @else {
+    <div class="subtopic-grid">
+      @for (subtopic of subtopics; track subtopic.id) {
+        <button
+          class="subtopic-card"
+          [class.subtopic-card--selected]="isSelected(subtopic.id)"
+          [attr.aria-pressed]="isSelected(subtopic.id)"
+          (click)="toggle(subtopic.id)"
+        >
+          <span class="subtopic-card__check" [class.visible]="isSelected(subtopic.id)">✓</span>
+          <span class="subtopic-card__name">{{ subtopic.name }}</span>
+        </button>
+      }
+    </div>
+
+    <footer class="page__footer">
+      <button
+        class="primary-btn"
+        [disabled]="!hasSelection"
+        (click)="goToSnacks()"
+      >
+        Generate snacks ({{ selectedIds().size }})
+      </button>
+    </footer>
+  }
+</section>

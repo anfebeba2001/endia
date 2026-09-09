@@ -1,0 +1,62 @@
+<section class="page">
+  @if (loadingQuestions()) {
+    <div class="loading state" aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>Crafting challenging questions…</p>
+    </div>
+  } @else if (errorMessage(); as msg) {
+    <div class="error-banner" role="alert">{{ msg }}</div>
+  } @else if (currentQuestion(); as question) {
+    <h1 class="sr-only">Quiz</h1>
+    <span class="step-chip">Step 4 / 5 · The taste test</span>
+
+    @if (subtopic; as sub) {
+      <div class="quiz-header">
+        <span class="chip">{{ sub.name }}</span>
+      </div>
+    }
+
+    <div class="progress-row">
+      <div class="progress-bar" aria-hidden="true">
+        <div class="progress-bar__fill" [style.width.%]="progress()"></div>
+      </div>
+      <span class="progress-label" aria-hidden="true">{{ currentIndex() + 1 }} / {{ appState.quizQuestions().length }}</span>
+    </div>
+
+    <h2 class="question">{{ question.prompt }}</h2>
+
+    <div class="options">
+      @for (option of question.options; track $index; let i = $index) {
+        <button
+          class="option"
+          [class.option--selected]="selectedOption() === i"
+          [class.option--correct]="feedback() && feedback()!.correctIndex === i"
+          [class.option--wrong]="feedback() && !feedback()!.correct && selectedOption() === i && feedback()!.correctIndex !== i"
+          [disabled]="submitting() || feedback() !== null"
+          (click)="selectOption(i)"
+        >
+          <span class="option__letter">{{ 'ABCD'[i] }}</span>
+          <span class="option__text">{{ option }}</span>
+          @if (feedback() && feedback()!.correctIndex === i) {
+            <span class="option__badge">✓</span>
+          }
+          @if (feedback() && !feedback()!.correct && selectedOption() === i && feedback()!.correctIndex !== i) {
+            <span class="option__badge">✗</span>
+          }
+        </button>
+      }
+    </div>
+
+    @if (feedback(); as fb) {
+      <div class="feedback" [class.feedback--correct]="fb.correct" [class.feedback--wrong]="!fb.correct" role="status">
+        <div class="feedback__bar">
+          <strong>{{ fb.correct ? 'Correct! +' + fb.xpEarned + ' XP' : 'Not quite' }}</strong>
+        </div>
+        <p class="feedback__explanation">{{ fb.explanation }}</p>
+        <button class="primary-btn" (click)="next()">
+          {{ currentIndex() + 1 >= appState.quizQuestions().length ? 'See results' : 'Next question' }}
+        </button>
+      </div>
+    }
+  }
+</section>

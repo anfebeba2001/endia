@@ -1,0 +1,93 @@
+.app-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--canvas);
+  color: var(--body);
+
+  &__header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: 0.85rem max(clamp(1rem, 4vw, 2rem), env(safe-area-inset-left));
+    padding-right: max(clamp(1rem, 4vw, 2rem), env(safe-area-inset-right));
+    background: rgba(244, 242, 235, 0.88);
+    backdrop-filter: saturate(160%) blur(12px);
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  &__main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+
+    /* skip-link target: focus ring would frame the whole main region */
+    &:focus {
+      outline: none;
+    }
+  }
+
+  &__footer {
+    text-align: center;
+    padding: 1.6rem 1rem calc(2rem + env(safe-area-inset-bottom));
+    color: var(--muted);
+    font-size: 0.85rem;
+    border-top: 1px solid transparent;
+
+    p {
+      margin: 0;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+}
+
+/* Skip link — visible only on keyboard focus */
+.skip-link {
+  position: absolute;
+  top: 0.75rem;
+  left: 1rem;
+  z-index: 100;
+  padding: 0.7rem 1.2rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent-deep);
+  color: #fff;
+  font: 600 0.9rem/1.2 var(--font-body);
+  text-decoration: none;
+  box-shadow: var(--shadow-accent);
+  transform: translateY(-400%);
+  transition: transform 0.15s ease;
+
+  &:focus {
+    transform: translateY(0);
+  }
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  color: var(--ink);
+  font: 800 1.35rem/1 var(--font-display);
+  letter-spacing: -0.03em;
+
+  /* the bite mark — a snack with a bite taken out */
+  &__dot {
+    width: 27px;
+    height: 27px;
+    border-radius: 8px;
+    background: var(--accent);
+    box-shadow: var(--shadow-accent);
+    -webkit-mask: radial-gradient(circle at 19px 6.5px, transparent 8px, black 8.5px);
+    mask: radial-gradient(circle at 19px 6.5px, transparent 8px, black 8.5px);
+  }
+
+  &__name {
+    font-variant-numeric: tabular-nums;
+  }
+
+  &:hover .brand__dot {
+    background: var(--accent-deep);
+  }
+}
