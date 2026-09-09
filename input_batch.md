@@ -60,3 +60,5 @@
 - Task 2: Ready (awaiting implementation)
 - Task 3: Ready (awaiting implementation)
 - Task 4: Ready (awaiting implementation)
+- Task 5: COMPLETED (branch 004-topic-suggest-retry)
+- Task 6: Ready (awaiting implementation)
