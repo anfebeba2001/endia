@@ -42,8 +42,45 @@
 - [ ] If both primary and alternate providers fail, a meaningful error is returned (consistent with Task 5 surface behaviour).
 - [ ] Manual test simulates a primary-provider SERVICE_UNAVAILABLE and confirms the alternate provider is used and the flow still succeeds.
 
+### Task 8: Show accurate step-by-step waiting messages during snack generation
+
+- Status: en proceso
+- Ready: yes
+- Sources: item 8
+- Description: Expose the real per-item snack generation phase from the backend and render phase-specific (not generic) waiting messages on the snack screen while a snack is being generated.
+
+**Acceptance criteria:**
+- [ ] The backend exposes a per-item snack generation phase that reflects the real steps of `SnackService`/`BatchService` generation — at minimum: resolving context, waiting for the LLM response, assembling/validating the response, and persisting — advanced at the actual code point of each step, not on a timer.
+- [ ] `GET /api/batches/{batchId}` includes the current snack phase for each in-progress item, and the phase is cleared/ignored once the item is `READY` or `FAILED`.
+- [ ] The snack screen shows a distinct message per phase (e.g. "Waiting for the AI response…" while awaiting the LLM, "Assembling your snack…" while validating/persisting), replacing the single generic "Preparing your snack…" for the in-progress item.
+- [ ] The displayed message changes as the backend phase changes during a real generation run and never shows a phase other than the item's actual current backend phase.
+- [ ] READY snacks, FAILED items with cause/retry, the empty-state gating, and the bounded polling from 002/005 are unchanged (no regression).
+- [ ] A Playwright test drives the mock through each phase and asserts the corresponding accurate message is rendered (no generic-only fallback).
+- [ ] No phase message or log exposes prompts, API keys, provider payloads, or personal data.
+
+### Task 9: Guarantee bounded snack generation — no infinite loops, no unanswered request
+
+- Status: no iniciado
+- Ready: yes
+- Sources: item 8
+- Description: Harden the snack-generation path so every generation step, retry, and batch worker run is time/count bounded and always reaches a terminal outcome, with no loop or request able to run forever.
+
+**Acceptance criteria:**
+- [ ] Every outbound LLM call in the snack path is bounded by a configured connect+read timeout (`llm.timeout-seconds`, default 30s), verified by a test where a hanging provider call cannot exceed that bound.
+- [ ] Automatic LLM retries remain bounded by `batch.retry.max-attempts` (default 3) and the re-roll in `generateValidSnack` cannot create an unbounded loop; a test asserts a failing/hanging provider produces a finite, bounded number of calls.
+- [ ] A single subtopic's snack generation is bounded by a configurable maximum (timeout and/or max attempts); exceeding it marks the item `FAILED` with a typed cause instead of blocking the batch worker.
+- [ ] The batch worker always reaches a terminal aggregate status (`COMPLETE`/`PARTIAL`/`FAILED`) within a bounded time even if one or all snack generations hang; verified by a test using a never-returning provider.
+- [ ] No synchronous HTTP request in the snack/batch path can be left unanswered indefinitely: `POST /api/batches` returns 202 immediately and `GET /api/batches/{id}` completes without waiting on background generation.
+- [ ] Frontend polling remains bounded (default 120s) and terminates on any terminal status or on timeout, surfacing a terminal error (preserved from 002/005).
+- [ ] Timeout/failure paths log the bounded outcome with the actual cause and no sensitive data.
+
 ## Current status
 
 - Task 3: Ready (awaiting implementation)
 - Task 4: Ready (awaiting implementation)
 - Task 6: Ready (awaiting implementation)
+- Task 8: Ready (in progress — branch 008-snack-wait-messages)
+- Task 9: Ready (awaiting implementation)
+
+
+8. the wait for the snacks feels eternal, let's add waiting messages "waiting for llm response" "assembling response" but it is important that the messages are accurate with every step, not generical messages, also let's make sure there are no infinite loops possible in the way of generating snacks, not any request not being responden infinitely.
