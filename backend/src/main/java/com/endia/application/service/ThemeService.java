@@ -1,6 +1,7 @@
 package com.endia.application.service;
 
 import com.endia.application.port.LlmProvider;
+import com.endia.domain.exception.LlmGenerationException;
 import com.endia.domain.exception.ServiceUnavailableException;
 import com.endia.domain.model.Subtopic;
 import com.endia.domain.model.Theme;
@@ -32,6 +33,8 @@ public class ThemeService {
         List<String> names;
         try {
             names = llmProvider.suggestSubtopics(prompt);
+        } catch (LlmGenerationException e) {
+            throw e;
         } catch (ServiceUnavailableException e) {
             throw e;
         } catch (Exception e) {
