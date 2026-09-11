@@ -31,9 +31,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -41,6 +45,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -79,12 +84,20 @@ class BatchServiceTest {
         TaskExecutor syncExecutor = Runnable::run;
         batchService = new BatchService(themeRepository, subtopicRepository, studySessionRepository,
                 itemRepository, quizQuestionRepository, snackService, quizService, phaseRegistry, syncExecutor,
-                syncExecutor, 240, self);
+                syncExecutor, syncExecutor, 240, 240, self);
         themeId = UUID.randomUUID();
         theme = new Theme("Photosynthesis");
         theme.setId(themeId);
         item1Id = UUID.randomUUID();
         item2Id = UUID.randomUUID();
+    }
+
+    private BatchService buildService(TaskExecutor batchExecutor, TaskExecutor quizExecutor,
+                                      TaskExecutor snackExecutor, int quizJoinTimeoutSeconds,
+                                      int snackTimeoutSeconds) {
+        return new BatchService(themeRepository, subtopicRepository, studySessionRepository,
+                itemRepository, quizQuestionRepository, snackService, quizService, phaseRegistry,
+                batchExecutor, quizExecutor, snackExecutor, quizJoinTimeoutSeconds, snackTimeoutSeconds, self);
     }
 
     @Test
@@ -413,5 +426,181 @@ class BatchServiceTest {
         assertNull(firstPhaseOfEachCycle.get(0));
         assertNull(firstPhaseOfEachCycle.get(1));
         assertNull(phaseRegistry.current(subId));
+    }
+
+    // ---- 009: per-subtopic bound, terminal aggregate guarantee, config (FR-007..FR-012/FR-014) ----
+
+    @Test
+    void perSubtopicSnackTimeoutMarksItemFailedAndWorkerProceeds() throws Exception {
+        UUID sessionId = UUID.randomUUID();
+        StudySession session = new StudySession(theme);
+        session.setId(sessionId);
+        Subtopic s1 = new Subtopic(theme, "Hangs");
+        s1.setId(UUID.randomUUID());
+        Subtopic s2 = new Subtopic(theme, "Healthy");
+        s2.setId(UUID.randomUUID());
+        StudySessionItem item1 = new StudySessionItem(session, s1);
+        item1.setId(item1Id);
+        StudySessionItem item2 = new StudySessionItem(session, s2);
+        item2.setId(item2Id);
+
+        when(itemRepository.findBySessionId(sessionId)).thenReturn(List.of(item1, item2));
+        when(studySessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(itemRepository.save(any(StudySessionItem.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(studySessionRepository.save(any(StudySession.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(quizService.generateQuiz(any(UUID.class), anyInt())).thenReturn(List.of());
+        when(itemRepository.findById(item1Id)).thenReturn(Optional.of(item1));
+        when(itemRepository.findById(item2Id)).thenReturn(Optional.of(item2));
+
+        CountDownLatch hang = new CountDownLatch(1);
+        when(snackService.generateSingleSnack(eq(s1.getId()), any(SnackPhaseListener.class))).thenAnswer(inv -> {
+            SnackPhaseListener listener = inv.getArgument(1);
+            listener.onPhase(SnackGenerationPhase.AWAITING_MODEL);
+            hang.await();
+            return new Snack(s1, "c", "m", "w", List.of("r"));
+        });
+        when(snackService.generateSingleSnack(eq(s2.getId()), any(SnackPhaseListener.class)))
+                .thenReturn(new Snack(s2, "c2", "m2", "w2", List.of("r2")));
+
+        ExecutorService snackPool = Executors.newFixedThreadPool(2);
+        try {
+            BatchService service = buildService(Runnable::run, Runnable::run, snackPool::execute, 240, 1);
+            service.runBatch(sessionId);
+
+            // The hung item is bounded and marked FAILED with the typed TIMEOUT cause.
+            assertEquals(GenerationStatus.FAILED, item1.getSnackStatus());
+            assertEquals(LlmErrorCause.TIMEOUT, item1.getSnackCause());
+            assertNull(phaseRegistry.current(s1.getId()), "phase must be cleared on the timeout path");
+            // The worker proceeded and the healthy item still became READY.
+            assertEquals(GenerationStatus.READY, item2.getSnackStatus());
+            assertEquals(BatchStatus.PARTIAL, session.getStatus());
+        } finally {
+            hang.countDown();
+            snackPool.shutdownNow();
+        }
+    }
+
+    @Test
+    void quizJoinTimeoutFinalizesGeneratingItemAndBatchIsTerminal() throws Exception {
+        UUID sessionId = UUID.randomUUID();
+        StudySession session = new StudySession(theme);
+        session.setId(sessionId);
+        Subtopic s1 = new Subtopic(theme, "S1");
+        s1.setId(UUID.randomUUID());
+        StudySessionItem item1 = new StudySessionItem(session, s1);
+        item1.setId(item1Id);
+
+        when(itemRepository.findBySessionId(sessionId)).thenReturn(List.of(item1));
+        when(studySessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(itemRepository.save(any(StudySessionItem.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(studySessionRepository.save(any(StudySession.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(itemRepository.findById(item1Id)).thenReturn(Optional.of(item1));
+        when(snackService.generateSingleSnack(eq(s1.getId()), any(SnackPhaseListener.class)))
+                .thenReturn(new Snack(s1, "c", "m", "w", List.of("r")));
+
+        CountDownLatch hang = new CountDownLatch(1);
+        when(quizService.generateQuiz(any(UUID.class), anyInt())).thenAnswer(inv -> {
+            hang.await();
+            return List.of();
+        });
+
+        ExecutorService quizPool = Executors.newFixedThreadPool(2);
+        try {
+            BatchService service = buildService(Runnable::run, quizPool::execute, Runnable::run, 1, 240);
+            service.runBatch(sessionId);
+
+            // The stuck quiz item is finalized to FAILED/TIMEOUT before aggregation.
+            assertEquals(GenerationStatus.FAILED, item1.getQuizStatus());
+            assertEquals(LlmErrorCause.TIMEOUT, item1.getQuizCause());
+            assertNotEquals(BatchStatus.IN_PROGRESS, session.getStatus(),
+                    "batch must reach a terminal status after the bounded quiz join");
+        } finally {
+            hang.countDown();
+            quizPool.shutdownNow();
+        }
+    }
+
+    @Test
+    void emptyBatchReachesTerminalStatus() {
+        UUID sessionId = UUID.randomUUID();
+        StudySession session = new StudySession(theme);
+        session.setId(sessionId);
+        when(itemRepository.findBySessionId(sessionId)).thenReturn(List.of());
+        when(studySessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(studySessionRepository.save(any(StudySession.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        batchService.runBatch(sessionId);
+
+        assertEquals(BatchStatus.FAILED, session.getStatus());
+    }
+
+    @Test
+    void nonPositiveSnackTimeoutNormalizesToDefaultSoHealthyGenerationSucceeds() throws Exception {
+        UUID sessionId = UUID.randomUUID();
+        StudySession session = new StudySession(theme);
+        session.setId(sessionId);
+        Subtopic s1 = new Subtopic(theme, "S1");
+        s1.setId(UUID.randomUUID());
+        StudySessionItem item1 = new StudySessionItem(session, s1);
+        item1.setId(item1Id);
+
+        when(itemRepository.findBySessionId(sessionId)).thenReturn(List.of(item1));
+        when(studySessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(itemRepository.save(any(StudySessionItem.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(studySessionRepository.save(any(StudySession.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(itemRepository.findById(item1Id)).thenReturn(Optional.of(item1));
+        when(quizService.generateQuiz(any(UUID.class), anyInt())).thenReturn(List.of());
+        when(snackService.generateSingleSnack(eq(s1.getId()), any(SnackPhaseListener.class))).thenAnswer(inv -> {
+            // Completes well after an un-normalized orTimeout(0) would have fired.
+            Thread.sleep(100);
+            return new Snack(s1, "c", "m", "w", List.of("r"));
+        });
+
+        ExecutorService snackPool = Executors.newFixedThreadPool(2);
+        try {
+            // snackTimeoutSeconds = 0 must normalize to the documented default (240).
+            BatchService service = buildService(Runnable::run, Runnable::run, snackPool::execute, 240, 0);
+            service.runBatch(sessionId);
+
+            assertEquals(GenerationStatus.READY, item1.getSnackStatus());
+            assertNull(item1.getSnackCause());
+        } finally {
+            snackPool.shutdownNow();
+        }
+    }
+
+    @Test
+    void alwaysFailingSnackProducesFiniteBoundedGenerationCalls() {
+        UUID sessionId = UUID.randomUUID();
+        StudySession session = new StudySession(theme);
+        session.setId(sessionId);
+        Subtopic s1 = new Subtopic(theme, "S1");
+        s1.setId(UUID.randomUUID());
+        Subtopic s2 = new Subtopic(theme, "S2");
+        s2.setId(UUID.randomUUID());
+        StudySessionItem item1 = new StudySessionItem(session, s1);
+        item1.setId(item1Id);
+        StudySessionItem item2 = new StudySessionItem(session, s2);
+        item2.setId(item2Id);
+
+        when(itemRepository.findBySessionId(sessionId)).thenReturn(List.of(item1, item2));
+        when(studySessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(itemRepository.save(any(StudySessionItem.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(studySessionRepository.save(any(StudySession.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(itemRepository.findById(item1Id)).thenReturn(Optional.of(item1));
+        when(itemRepository.findById(item2Id)).thenReturn(Optional.of(item2));
+        when(quizService.generateQuiz(any(UUID.class), anyInt())).thenReturn(List.of());
+        when(snackService.generateSingleSnack(any(UUID.class), any(SnackPhaseListener.class)))
+                .thenThrow(new LlmGenerationException(LlmErrorCause.TIMEOUT, true, "timeout"));
+
+        batchService.runBatch(sessionId);
+
+        // Exactly one snack generation call per item: the batch worker never re-enters or loops.
+        // The per-call retry (<= batch.retry.max-attempts) and the single re-roll bounds are
+        // verified in RetryingLlmProviderTest and SnackServiceTest.
+        verify(snackService, times(2)).generateSingleSnack(any(UUID.class), any(SnackPhaseListener.class));
+        assertEquals(GenerationStatus.FAILED, item1.getSnackStatus());
+        assertEquals(GenerationStatus.FAILED, item2.getSnackStatus());
+        assertEquals(BatchStatus.FAILED, session.getStatus());
     }
 }
