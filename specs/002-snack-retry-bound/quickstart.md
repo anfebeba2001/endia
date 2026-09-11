@@ -51,6 +51,12 @@ import { MAX_POLLING_WINDOW_MS } from './services/batch.service';
 { provide: MAX_POLLING_WINDOW_MS, useValue: 10_000 }, // 10s for quick manual checks
 ```
 
+The `app.config.ts` provider factory also honors a pre-boot global override — set
+`window.__MAX_POLLING_WINDOW_MS__ = 1_000` (e.g. via a Playwright `addInitScript`) to exercise the
+timeout path quickly without editing source. The E2E helper `setPollingWindow(page, ms)` in
+`frontend/e2e/helpers.ts` does exactly this. On timeout the observable errors with
+`BatchPollingTimeoutError` and the page shows a terminal error instead of spinning.
+
 ## Database
 
 ```bash

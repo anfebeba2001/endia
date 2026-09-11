@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -163,6 +164,50 @@ class BatchServiceTest {
         assertEquals(GenerationStatus.FAILED, status.items().get(0).snackStatus());
         assertEquals(LlmErrorCause.QUOTA, status.items().get(0).snackCause());
         assertEquals("Light reactions", status.items().get(0).subtopicName());
+    }
+
+    @Test
+    void getStatusReportsNotRetryingWhenAllItemsPending() {
+        // FR-011: a freshly created batch (all items PENDING, worker not yet active) is IN_PROGRESS
+        // but not actively retrying/generating.
+        UUID sessionId = UUID.randomUUID();
+        Subtopic s1 = new Subtopic(theme, "Light reactions");
+        StudySession session = new StudySession(theme);
+        session.setId(sessionId);
+        StudySessionItem item = new StudySessionItem(session, s1);
+        item.setId(item1Id);
+        item.setSnackStatus(GenerationStatus.PENDING);
+        item.setQuizStatus(GenerationStatus.PENDING);
+
+        when(studySessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(itemRepository.findBySessionId(sessionId)).thenReturn(List.of(item));
+
+        BatchService.BatchStatusResult status = batchService.getStatus(sessionId);
+
+        assertEquals(BatchStatus.IN_PROGRESS, status.status());
+        assertFalse(status.retrying());
+    }
+
+    @Test
+    void getStatusReportsNotRetryingWhenAllItemsTerminal() {
+        // FR-011: terminal items must not report retrying, even while the session aggregate
+        // has not yet been written (session still IN_PROGRESS).
+        UUID sessionId = UUID.randomUUID();
+        Subtopic s1 = new Subtopic(theme, "Light reactions");
+        StudySession session = new StudySession(theme);
+        session.setId(sessionId);
+        StudySessionItem item = new StudySessionItem(session, s1);
+        item.setId(item1Id);
+        item.setSnackStatus(GenerationStatus.READY);
+        item.setQuizStatus(GenerationStatus.FAILED);
+
+        when(studySessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(itemRepository.findBySessionId(sessionId)).thenReturn(List.of(item));
+
+        BatchService.BatchStatusResult status = batchService.getStatus(sessionId);
+
+        assertEquals(BatchStatus.IN_PROGRESS, status.status());
+        assertFalse(status.retrying());
     }
 
     @Test

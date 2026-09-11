@@ -3,7 +3,9 @@
     <button class="link-btn" (click)="goBack()">← Back to subtopics</button>
     <span class="step-chip">Step 3 / 5 · Knowledge snacks</span>
     <h1 class="page__title">Your Snacks</h1>
-    <p class="page__subtitle">Quick, memorable cards — served one at a time as they finish cooking.</p>
+    <p class="page__subtitle">
+      Quick, memorable cards — served one at a time as they finish cooking.
+    </p>
   </header>
 
   @if (errorMessage(); as msg) {
@@ -21,7 +23,9 @@
     <div class="empty-state">
       <span class="empty-state__mark" aria-hidden="true"></span>
       <h2 class="empty-state__title">The counter is empty</h2>
-      <p class="empty-state__text">No snacks were prepared. Head back and generate them from your selected subtopics.</p>
+      <p class="empty-state__text">
+        No snacks were prepared. Head back and generate them from your selected subtopics.
+      </p>
       <button class="empty-state__cta" (click)="goBack()">← Back to subtopics</button>
     </div>
   }
@@ -84,9 +88,20 @@
       </article>
     } @else if (item.snackStatus === 'FAILED') {
       <div class="error-banner" role="alert">
-        <strong>Couldn't prepare this snack.</strong>
-        <span>Cause: {{ item.snackCause ?? 'Unknown' }}. </span>
-        <button class="link-btn" (click)="retry(item.subtopicId)">Retry</button>
+        @if (terminalError(item.subtopicId); as terminalMsg) {
+          <strong>Couldn't prepare this snack after 3 attempts.</strong>
+          <span>{{ terminalMsg }} </span>
+        } @else {
+          <strong>Couldn't prepare this snack.</strong>
+          <span>Cause: {{ item.snackCause ?? 'Unknown' }}. </span>
+        }
+        <button
+          class="link-btn"
+          [disabled]="isInFlight(item.subtopicId)"
+          (click)="retry(item.subtopicId)"
+        >
+          Retry
+        </button>
       </div>
     } @else {
       <div class="loading state" aria-live="polite">
