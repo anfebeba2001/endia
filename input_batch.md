@@ -42,22 +42,6 @@
 - [ ] If both primary and alternate providers fail, a meaningful error is returned (consistent with Task 5 surface behaviour).
 - [ ] Manual test simulates a primary-provider SERVICE_UNAVAILABLE and confirms the alternate provider is used and the flow still succeeds.
 
-### Task 8: Show accurate step-by-step waiting messages during snack generation
-
-- Status: en proceso
-- Ready: yes
-- Sources: item 8
-- Description: Expose the real per-item snack generation phase from the backend and render phase-specific (not generic) waiting messages on the snack screen while a snack is being generated.
-
-**Acceptance criteria:**
-- [ ] The backend exposes a per-item snack generation phase that reflects the real steps of `SnackService`/`BatchService` generation — at minimum: resolving context, waiting for the LLM response, assembling/validating the response, and persisting — advanced at the actual code point of each step, not on a timer.
-- [ ] `GET /api/batches/{batchId}` includes the current snack phase for each in-progress item, and the phase is cleared/ignored once the item is `READY` or `FAILED`.
-- [ ] The snack screen shows a distinct message per phase (e.g. "Waiting for the AI response…" while awaiting the LLM, "Assembling your snack…" while validating/persisting), replacing the single generic "Preparing your snack…" for the in-progress item.
-- [ ] The displayed message changes as the backend phase changes during a real generation run and never shows a phase other than the item's actual current backend phase.
-- [ ] READY snacks, FAILED items with cause/retry, the empty-state gating, and the bounded polling from 002/005 are unchanged (no regression).
-- [ ] A Playwright test drives the mock through each phase and asserts the corresponding accurate message is rendered (no generic-only fallback).
-- [ ] No phase message or log exposes prompts, API keys, provider payloads, or personal data.
-
 ### Task 9: Guarantee bounded snack generation — no infinite loops, no unanswered request
 
 - Status: no iniciado
@@ -79,7 +63,6 @@
 - Task 3: Ready (awaiting implementation)
 - Task 4: Ready (awaiting implementation)
 - Task 6: Ready (awaiting implementation)
-- Task 8: Ready (in progress — branch 008-snack-wait-messages)
 - Task 9: Ready (awaiting implementation)
 
 
