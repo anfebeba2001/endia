@@ -17,6 +17,7 @@ public record BatchStatusApiResponse(
             UUID subtopicId,
             String subtopicName,
             GenerationStatus snackStatus,
+            String snackPhase,
             SnackDto snack,
             LlmErrorCause snackCause,
             GenerationStatus quizStatus,

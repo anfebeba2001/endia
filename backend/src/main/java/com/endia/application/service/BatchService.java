@@ -1,8 +1,10 @@
 package com.endia.application.service;
 
+import com.endia.application.port.SnackPhaseListener;
 import com.endia.domain.enums.BatchStatus;
 import com.endia.domain.enums.GenerationStatus;
 import com.endia.domain.enums.LlmErrorCause;
+import com.endia.domain.enums.SnackGenerationPhase;
 import com.endia.domain.exception.EntityNotFoundException;
 import com.endia.domain.exception.LlmGenerationException;
 import com.endia.domain.model.QuizQuestion;
@@ -16,6 +18,7 @@ import com.endia.infrastructure.persistence.JpaStudySessionItemRepository;
 import com.endia.infrastructure.persistence.JpaStudySessionRepository;
 import com.endia.infrastructure.persistence.JpaSubtopicRepository;
 import com.endia.infrastructure.persistence.JpaThemeRepository;
+import com.endia.infrastructure.tracking.SnackPhaseRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -51,6 +54,7 @@ public class BatchService {
     private final JpaQuizQuestionRepository quizQuestionRepository;
     private final SnackService snackService;
     private final QuizService quizService;
+    private final SnackPhaseRegistry phaseRegistry;
     private final TaskExecutor batchExecutor;
     private final TaskExecutor quizExecutor;
     private final int quizJoinTimeoutSeconds;
@@ -63,6 +67,7 @@ public class BatchService {
                         JpaQuizQuestionRepository quizQuestionRepository,
                         SnackService snackService,
                         QuizService quizService,
+                        SnackPhaseRegistry phaseRegistry,
                         @Qualifier("batchExecutor") TaskExecutor batchExecutor,
                         @Qualifier("quizExecutor") TaskExecutor quizExecutor,
                         @Value("${batch.quiz-join-timeout-seconds:240}") int quizJoinTimeoutSeconds,
@@ -74,6 +79,7 @@ public class BatchService {
         this.quizQuestionRepository = quizQuestionRepository;
         this.snackService = snackService;
         this.quizService = quizService;
+        this.phaseRegistry = phaseRegistry;
         this.batchExecutor = batchExecutor;
         this.quizExecutor = quizExecutor;
         this.quizJoinTimeoutSeconds = quizJoinTimeoutSeconds;
@@ -128,11 +134,14 @@ public class BatchService {
         for (StudySessionItem item : items) {
             item.setSnackStatus(GenerationStatus.GENERATING);
             itemRepository.save(item);
+            // FR-001/FR-002: only the id crosses the boundary; the subtopic (and its lazy
+            // theme) are resolved inside the transactional by-id overload, never detached.
+            UUID subtopicId = item.getSubtopic().getId();
+            // FR-004/FR-009: never expose a stale phase — clear before the new cycle starts.
+            phaseRegistry.clear(subtopicId);
             try {
-                // FR-001/FR-002: only the id crosses the boundary; the subtopic (and its lazy
-                // theme) are resolved inside the transactional by-id overload, never detached.
-                UUID subtopicId = item.getSubtopic().getId();
-                Snack snack = snackService.generateSingleSnack(subtopicId);
+                SnackPhaseListener listener = phase -> phaseRegistry.update(subtopicId, phase);
+                Snack snack = snackService.generateSingleSnack(subtopicId, listener);
                 item.setSnack(snack);
                 item.setSnackStatus(GenerationStatus.READY);
                 item.setSnackCause(null);
@@ -143,6 +152,9 @@ public class BatchService {
                 log.warn("Batch snack generation failed for subtopic {}", item.getSubtopic().getId(), e);
                 item.setSnackStatus(GenerationStatus.FAILED);
                 item.setSnackCause(LlmErrorCause.UNAVAILABLE);
+            } finally {
+                // FR-004: the phase can never outlive the item, on success or failure.
+                phaseRegistry.clear(subtopicId);
             }
             itemRepository.save(item);
         }
@@ -240,10 +252,15 @@ public class BatchService {
             List<QuizQuestion> prefetchedQuiz = item.getQuizStatus() == GenerationStatus.READY
                     ? quizQuestionRepository.findBySubtopicId(item.getSubtopic().getId())
                     : List.of();
+            // FR-003/FR-004: expose the phase only while the item is actively generating.
+            SnackGenerationPhase snackPhase = item.getSnackStatus() == GenerationStatus.GENERATING
+                    ? phaseRegistry.current(item.getSubtopic().getId())
+                    : null;
             statuses.add(new BatchItemStatus(
                     item.getSubtopic().getId(),
                     item.getSubtopic().getName(),
                     item.getSnackStatus(),
+                    snackPhase,
                     item.getSnack(),
                     item.getSnackCause(),
                     item.getQuizStatus(),
@@ -271,7 +288,8 @@ public class BatchService {
                                     List<BatchItemStatus> items) {
     }
 
-    public record BatchItemStatus(UUID subtopicId, String subtopicName, GenerationStatus snackStatus, Snack snack,
+    public record BatchItemStatus(UUID subtopicId, String subtopicName, GenerationStatus snackStatus,
+                                  SnackGenerationPhase snackPhase, Snack snack,
                                   LlmErrorCause snackCause, GenerationStatus quizStatus, LlmErrorCause quizCause,
                                   List<QuizQuestion> quizQuestions) {
     }

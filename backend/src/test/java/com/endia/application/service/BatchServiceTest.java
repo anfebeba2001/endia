@@ -1,8 +1,10 @@
 package com.endia.application.service;
 
+import com.endia.application.port.SnackPhaseListener;
 import com.endia.domain.enums.BatchStatus;
 import com.endia.domain.enums.GenerationStatus;
 import com.endia.domain.enums.LlmErrorCause;
+import com.endia.domain.enums.SnackGenerationPhase;
 import com.endia.domain.exception.LlmGenerationException;
 import com.endia.domain.model.QuizQuestion;
 import com.endia.domain.model.Snack;
@@ -15,6 +17,7 @@ import com.endia.infrastructure.persistence.JpaStudySessionItemRepository;
 import com.endia.infrastructure.persistence.JpaStudySessionRepository;
 import com.endia.infrastructure.persistence.JpaSubtopicRepository;
 import com.endia.infrastructure.persistence.JpaThemeRepository;
+import com.endia.infrastructure.tracking.SnackPhaseRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,16 +27,19 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -59,6 +65,7 @@ class BatchServiceTest {
     private BatchService self;
 
     private int counter;
+    private final SnackPhaseRegistry phaseRegistry = new SnackPhaseRegistry();
     private BatchService batchService;
     private Theme theme;
     private UUID themeId;
@@ -71,8 +78,8 @@ class BatchServiceTest {
         // Both executors execute runnables inline so runBatch is deterministic.
         TaskExecutor syncExecutor = Runnable::run;
         batchService = new BatchService(themeRepository, subtopicRepository, studySessionRepository,
-                itemRepository, quizQuestionRepository, snackService, quizService, syncExecutor, syncExecutor,
-                240, self);
+                itemRepository, quizQuestionRepository, snackService, quizService, phaseRegistry, syncExecutor,
+                syncExecutor, 240, self);
         themeId = UUID.randomUUID();
         theme = new Theme("Photosynthesis");
         theme.setId(themeId);
@@ -157,9 +164,11 @@ class BatchServiceTest {
         when(itemRepository.findBySessionId(sessionId)).thenReturn(List.of(item1, item2));
         when(studySessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
         // item1 snack + quiz succeed (batch resolves the subtopic by id, never by entity)
-        when(snackService.generateSingleSnack(s1.getId())).thenReturn(new Snack(s1, "c1", "m1", "w1", List.of("r1")));
+        when(snackService.generateSingleSnack(eq(s1.getId()), any(SnackPhaseListener.class)))
+                .thenReturn(new Snack(s1, "c1", "m1", "w1", List.of("r1")));
         // item2 snack fails with QUOTA
-        when(snackService.generateSingleSnack(s2.getId())).thenThrow(new LlmGenerationException(LlmErrorCause.QUOTA, true, "quota"));
+        when(snackService.generateSingleSnack(eq(s2.getId()), any(SnackPhaseListener.class)))
+                .thenThrow(new LlmGenerationException(LlmErrorCause.QUOTA, true, "quota"));
         // quizzes both succeed (quizService.generateQuiz checks by subtopic id)
         when(quizService.generateQuiz(any(UUID.class), anyInt())).thenReturn(List.of());
         // parallel quiz reload
@@ -177,8 +186,8 @@ class BatchServiceTest {
         assertEquals(GenerationStatus.READY, item2.getQuizStatus());
         assertEquals(BatchStatus.PARTIAL, session.getStatus());
         // FR-002 regression guard: the worker must use the by-id overload, never pass a detached entity.
-        verify(snackService).generateSingleSnack(s1.getId());
-        verify(snackService).generateSingleSnack(s2.getId());
+        verify(snackService).generateSingleSnack(eq(s1.getId()), any(SnackPhaseListener.class));
+        verify(snackService).generateSingleSnack(eq(s2.getId()), any(SnackPhaseListener.class));
         verify(snackService, never()).generateSingleSnack(any(Subtopic.class));
     }
 
@@ -274,5 +283,135 @@ class BatchServiceTest {
 
         assertEquals(1, status.items().size());
         assertEquals(List.of(q), status.items().get(0).quizQuestions());
+    }
+
+    // ---- 008: phase exposure + registry lifecycle (FR-003/FR-004/FR-008/FR-009) ----
+
+    @Test
+    void getStatusExposesPhaseWhileGeneratingAndNullWhenSettled() {
+        UUID sessionId = UUID.randomUUID();
+        UUID subId = UUID.randomUUID();
+        Subtopic s1 = new Subtopic(theme, "Light reactions");
+        s1.setId(subId);
+        StudySession session = new StudySession(theme);
+        session.setId(sessionId);
+        StudySessionItem item = new StudySessionItem(session, s1);
+        item.setId(item1Id);
+        item.setSnackStatus(GenerationStatus.GENERATING);
+        item.setQuizStatus(GenerationStatus.GENERATING);
+
+        when(studySessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(itemRepository.findBySessionId(sessionId)).thenReturn(List.of(item));
+
+        phaseRegistry.update(subId, SnackGenerationPhase.AWAITING_MODEL);
+        assertEquals(SnackGenerationPhase.AWAITING_MODEL,
+                batchService.getStatus(sessionId).items().get(0).snackPhase());
+
+        item.setSnackStatus(GenerationStatus.READY);
+        assertNull(batchService.getStatus(sessionId).items().get(0).snackPhase());
+
+        item.setSnackStatus(GenerationStatus.FAILED);
+        assertNull(batchService.getStatus(sessionId).items().get(0).snackPhase());
+    }
+
+    @Test
+    void runBatchClearsPhaseBeforeAndAfterGenerationOnSuccess() {
+        UUID sessionId = UUID.randomUUID();
+        UUID subId = UUID.randomUUID();
+        Subtopic s1 = new Subtopic(theme, "S1");
+        s1.setId(subId);
+        StudySession session = new StudySession(theme);
+        session.setId(sessionId);
+        StudySessionItem item = new StudySessionItem(session, s1);
+        item.setId(item1Id);
+
+        when(itemRepository.findBySessionId(sessionId)).thenReturn(List.of(item));
+        when(studySessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(itemRepository.findById(item1Id)).thenReturn(Optional.of(item));
+        when(itemRepository.save(any(StudySessionItem.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(studySessionRepository.save(any(StudySession.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(quizService.generateQuiz(any(UUID.class), anyInt())).thenReturn(List.of());
+
+        // A stale entry from a previous cycle must be cleared before the new generation starts.
+        phaseRegistry.update(subId, SnackGenerationPhase.PERSISTING);
+        List<SnackGenerationPhase> phaseAtStart = new ArrayList<>();
+        when(snackService.generateSingleSnack(eq(subId), any(SnackPhaseListener.class))).thenAnswer(inv -> {
+            phaseAtStart.add(phaseRegistry.current(subId));
+            SnackPhaseListener listener = inv.getArgument(1);
+            listener.onPhase(SnackGenerationPhase.RESOLVING_CONTEXT);
+            listener.onPhase(SnackGenerationPhase.AWAITING_MODEL);
+            return new Snack(s1, "c", "m", "w", List.of("r"));
+        });
+
+        batchService.runBatch(sessionId);
+
+        assertEquals(1, phaseAtStart.size());
+        assertNull(phaseAtStart.get(0), "registry entry must be cleared before each generation");
+        assertNull(phaseRegistry.current(subId), "registry entry must be cleared once the item settles");
+    }
+
+    @Test
+    void runBatchClearsPhaseOnFailurePath() {
+        UUID sessionId = UUID.randomUUID();
+        UUID subId = UUID.randomUUID();
+        Subtopic s1 = new Subtopic(theme, "S1");
+        s1.setId(subId);
+        StudySession session = new StudySession(theme);
+        session.setId(sessionId);
+        StudySessionItem item = new StudySessionItem(session, s1);
+        item.setId(item1Id);
+
+        when(itemRepository.findBySessionId(sessionId)).thenReturn(List.of(item));
+        when(studySessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(itemRepository.findById(item1Id)).thenReturn(Optional.of(item));
+        when(itemRepository.save(any(StudySessionItem.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(studySessionRepository.save(any(StudySession.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(quizService.generateQuiz(any(UUID.class), anyInt())).thenReturn(List.of());
+        when(snackService.generateSingleSnack(eq(subId), any(SnackPhaseListener.class))).thenAnswer(inv -> {
+            SnackPhaseListener listener = inv.getArgument(1);
+            listener.onPhase(SnackGenerationPhase.AWAITING_MODEL);
+            throw new LlmGenerationException(LlmErrorCause.QUOTA, true, "quota");
+        });
+
+        phaseRegistry.update(subId, SnackGenerationPhase.AWAITING_MODEL);
+        batchService.runBatch(sessionId);
+
+        assertNull(phaseRegistry.current(subId), "registry entry must be cleared on the failure path too");
+    }
+
+    @Test
+    void retriedItemReentersFromResolvingContext() {
+        UUID sessionId = UUID.randomUUID();
+        UUID subId = UUID.randomUUID();
+        Subtopic s1 = new Subtopic(theme, "S1");
+        s1.setId(subId);
+        StudySession session = new StudySession(theme);
+        session.setId(sessionId);
+        StudySessionItem item = new StudySessionItem(session, s1);
+        item.setId(item1Id);
+
+        when(itemRepository.findBySessionId(sessionId)).thenReturn(List.of(item));
+        when(studySessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(itemRepository.findById(item1Id)).thenReturn(Optional.of(item));
+        when(itemRepository.save(any(StudySessionItem.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(studySessionRepository.save(any(StudySession.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(quizService.generateQuiz(any(UUID.class), anyInt())).thenReturn(List.of());
+
+        List<SnackGenerationPhase> firstPhaseOfEachCycle = new ArrayList<>();
+        when(snackService.generateSingleSnack(eq(subId), any(SnackPhaseListener.class))).thenAnswer(inv -> {
+            // A retry starts a clean cycle: the registry entry must be absent at entry.
+            firstPhaseOfEachCycle.add(phaseRegistry.current(subId));
+            SnackPhaseListener listener = inv.getArgument(1);
+            listener.onPhase(SnackGenerationPhase.RESOLVING_CONTEXT);
+            return new Snack(s1, "c", "m", "w", List.of("r"));
+        });
+
+        batchService.runBatch(sessionId);
+        batchService.runBatch(sessionId);
+
+        assertEquals(2, firstPhaseOfEachCycle.size());
+        assertNull(firstPhaseOfEachCycle.get(0));
+        assertNull(firstPhaseOfEachCycle.get(1));
+        assertNull(phaseRegistry.current(subId));
     }
 }

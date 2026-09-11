@@ -1,6 +1,8 @@
 package com.endia.application.service;
 
 import com.endia.application.port.LlmProvider;
+import com.endia.application.port.SnackPhaseListener;
+import com.endia.domain.enums.SnackGenerationPhase;
 import com.endia.domain.exception.EntityNotFoundException;
 import com.endia.domain.model.Snack;
 import com.endia.domain.model.Subtopic;
@@ -14,10 +16,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -156,5 +160,58 @@ class SnackServiceTest {
         when(subtopicRepository.findById(subtopicId)).thenReturn(Optional.empty());
 
         assertThrows(EntityNotFoundException.class, () -> snackService.generateSingleSnack(subtopicId));
+    }
+
+    // ---- 008: listener is invoked at the real code points in order (FR-001/FR-002) ----
+
+    @Test
+    void listenerReceivesPhasesInRealOrder() {
+        when(subtopicRepository.findById(subtopicId)).thenReturn(Optional.of(subtopic));
+        when(llmProvider.generateSnack("Photosynthesis", "Light reactions")).thenReturn(validSnack());
+        when(snackRepository.save(any(Snack.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        List<SnackGenerationPhase> phases = new ArrayList<>();
+        Snack snack = snackService.generateSingleSnack(subtopicId, phases::add);
+
+        assertEquals("The light reactions convert light into chemical energy.", snack.getConcept());
+        assertEquals(List.of(
+                SnackGenerationPhase.RESOLVING_CONTEXT,
+                SnackGenerationPhase.AWAITING_MODEL,
+                SnackGenerationPhase.ASSEMBLING,
+                SnackGenerationPhase.PERSISTING), phases);
+    }
+
+    @Test
+    void listenerReceivesRerollSequenceForInvalidFirstResponse() {
+        when(subtopicRepository.findById(subtopicId)).thenReturn(Optional.of(subtopic));
+        LlmProvider.GeneratedSnack bad = new LlmProvider.GeneratedSnack(
+                "Concept", "", "WhyItMatters", List.of("Related"));
+        when(llmProvider.generateSnack("Photosynthesis", "Light reactions"))
+                .thenReturn(bad)
+                .thenReturn(validSnack());
+        when(snackRepository.save(any(Snack.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        List<SnackGenerationPhase> phases = new ArrayList<>();
+        snackService.generateSingleSnack(subtopicId, phases::add);
+
+        assertEquals(List.of(
+                SnackGenerationPhase.RESOLVING_CONTEXT,
+                SnackGenerationPhase.AWAITING_MODEL,
+                SnackGenerationPhase.AWAITING_MODEL,
+                SnackGenerationPhase.ASSEMBLING,
+                SnackGenerationPhase.PERSISTING), phases);
+    }
+
+    @Test
+    void singleShotOverloadsDoNotRequireAListener() {
+        // The NOOP default keeps single-shot generation unchanged (spec edge case).
+        assertDoesNotThrow(() -> SnackPhaseListener.NOOP.onPhase(SnackGenerationPhase.AWAITING_MODEL));
+        when(llmProvider.generateSnack("Photosynthesis", "Light reactions")).thenReturn(validSnack());
+        when(snackRepository.save(any(Snack.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Snack snack = snackService.generateSingleSnack(subtopic);
+
+        assertEquals("The light reactions convert light into chemical energy.", snack.getConcept());
+        verify(snackRepository).save(any(Snack.class));
     }
 }

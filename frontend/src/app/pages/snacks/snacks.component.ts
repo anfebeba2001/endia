@@ -6,7 +6,12 @@ import { SnackRetryService } from '../../services/snack-retry.service';
 import { ErrorService } from '../../services/error.service';
 import { Snack } from '../../models/snack.model';
 import { Subtopic } from '../../models/theme.model';
-import { BatchItem, BatchStatusResponse } from '../../models/batch.model';
+import {
+  BatchItem,
+  BatchStatusResponse,
+  SnackGenerationPhase,
+  phaseMessage as phaseToMessage,
+} from '../../models/batch.model';
 import { Subject, takeUntil } from 'rxjs';
 
 @Component({
@@ -290,6 +295,11 @@ export class SnacksComponent implements OnDestroy {
   /** Whether a generation cycle is currently in flight for the target (FR-007). */
   isInFlight(subtopicId: string): boolean {
     return this.retryService.isInFlight(subtopicId);
+  }
+
+  /** Feature 008: map the item's reported phase to its static waiting message (FR-005/FR-006). */
+  phaseMessage(phase: SnackGenerationPhase | null | undefined): string {
+    return phaseToMessage(phase);
   }
 
   /** Advance to the next snack only when it is READY (FR-002). */
