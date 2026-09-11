@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, computed, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { AppStateService } from '../../services/app-state.service';
-import { BatchService } from '../../services/batch.service';
+import { BatchPollingTimeoutError, BatchService } from '../../services/batch.service';
+import { SnackRetryService } from '../../services/snack-retry.service';
 import { ErrorService } from '../../services/error.service';
 import { Snack } from '../../models/snack.model';
 import { Subtopic } from '../../models/theme.model';
@@ -24,17 +25,26 @@ export class SnacksComponent implements OnDestroy {
   readonly creating = signal(true);
   readonly loadingSubtopic = signal<string | null>(null);
   readonly currentIndex = signal(0);
+  /** Per-target terminal error message shown after the automatic budget is exhausted (FR-005). */
+  readonly terminalErrors = signal<Record<string, string>>({});
   private readonly destroy$ = new Subject<void>();
+  /** Which batch currently owns each target; prevents stale polls from double-triggering (FR-007). */
+  private readonly ownerBatchId = new Map<string, string>();
 
-  readonly currentSnack = computed<BatchItem | null>(() => this.items()[this.currentIndex()] ?? null);
-  readonly nextSnack = computed<BatchItem | null>(() => this.items()[this.currentIndex() + 1] ?? null);
+  readonly currentSnack = computed<BatchItem | null>(
+    () => this.items()[this.currentIndex()] ?? null,
+  );
+  readonly nextSnack = computed<BatchItem | null>(
+    () => this.items()[this.currentIndex() + 1] ?? null,
+  );
   readonly anyReady = computed(() => this.items().some((i) => i.snackStatus === 'READY'));
 
   constructor(
     private appState: AppStateService,
     private batchService: BatchService,
+    private retryService: SnackRetryService,
     private errorService: ErrorService,
-    private router: Router
+    private router: Router,
   ) {
     void this.init();
   }
@@ -58,11 +68,19 @@ export class SnacksComponent implements OnDestroy {
       return;
     }
 
+    // FR-001/FR-007: a brand-new batch starts a fresh budget and clears any prior ownership.
+    this.retryService.resetAll();
+    this.ownerBatchId.clear();
+
     this.batchService.createBatch(themeId, subIds).subscribe({
       next: (created) => {
         this.batchId.set(created.batchId);
         this.appState.setBatch(created.batchId);
         this.creating.set(false);
+        for (const id of subIds) {
+          this.ownerBatchId.set(id, created.batchId);
+          this.retryService.registerAttempt(id);
+        }
         this.poll(created.batchId);
       },
       error: (err) => {
@@ -73,29 +91,177 @@ export class SnacksComponent implements OnDestroy {
   }
 
   private poll(batchId: string): void {
-    this.batchService.pollStatus(batchId).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (status) => this.applyStatus(status),
-      error: (err) => this.errorMessage.set(this.errorService.getMessage(err)),
+    this.batchService
+      .pollStatus(batchId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (status) => this.applyStatus(status, batchId),
+        error: (err) => this.handlePollError(err),
+      });
+  }
+
+  private applyStatus(status: BatchStatusResponse, batchId: string): void {
+    this.batchStatus.set(status.status);
+
+    const settled: string[] = [];
+    for (const item of status.items) {
+      if (!this.ownsItem(item.subtopicId, batchId)) {
+        continue;
+      }
+      this.mergeItem(item);
+      if (item.snackStatus === 'READY' || item.snackStatus === 'FAILED') {
+        settled.push(item.subtopicId);
+      }
+    }
+
+    // A settled in-flight retry cycle releases its guard; a READY result clears the terminal error.
+    for (const target of settled) {
+      if (this.retryService.isInFlight(target)) {
+        this.retryService.clearInFlight(target);
+        if (this.itemFor(target)?.snackStatus === 'READY') {
+          this.clearTerminalError(target);
+        }
+      }
+    }
+
+    this.retrying.set(status.retrying || this.retryService.hasInFlight());
+    this.syncAppStateSnacks();
+    this.capturePrefetchedQuiz(status.items);
+    this.maybeRetryFailed(status.items, batchId);
+  }
+
+  private maybeRetryFailed(items: BatchItem[], batchId: string): void {
+    for (const item of items) {
+      if (item.snackStatus !== 'FAILED') {
+        continue;
+      }
+      const target = item.subtopicId;
+      if (!this.ownsItem(target, batchId)) {
+        continue;
+      }
+      if (this.retryService.canRetry(target)) {
+        // FR-003/FR-004: an explicit failure is the only trigger for an automatic reattempt.
+        this.retryTarget(target);
+      } else if (!this.retryService.isInFlight(target)) {
+        // FR-005: budget exhausted → terminal, user-visible error naming the typed cause.
+        this.setTerminalError(target, item.snackCause);
+      }
+    }
+  }
+
+  /**
+   * Start exactly one new generation cycle for a target (FR-006/FR-007). Shared by the automatic
+   * reattempt path and the manual retry affordance so the counter/guard are single-sourced.
+   */
+  private retryTarget(target: string): void {
+    const themeId = this.themeId;
+    if (!themeId) {
+      return;
+    }
+    if (!this.retryService.canRetry(target)) {
+      if (!this.retryService.isInFlight(target)) {
+        this.setTerminalError(target, this.itemFor(target)?.snackCause ?? null);
+      }
+      return;
+    }
+
+    this.retryService.registerAttempt(target);
+    this.retryService.markInFlight(target);
+    this.clearTerminalError(target);
+    this.retrying.set(true);
+
+    // FR-003: a single-target batch — never re-create the whole batch or regenerate healthy targets.
+    this.batchService.createBatch(themeId, [target]).subscribe({
+      next: (created) => {
+        this.ownerBatchId.set(target, created.batchId);
+        this.poll(created.batchId);
+      },
+      error: (err) => {
+        // A failed create request is itself an explicit error; it consumes one attempt (FR-003).
+        this.retryService.clearInFlight(target);
+        this.retrying.set(this.retryService.hasInFlight());
+        if (this.retryService.attemptsFor(target) >= 3) {
+          this.setTerminalError(target, null, this.errorService.getMessage(err));
+        } else {
+          this.retryTarget(target);
+        }
+      },
     });
   }
 
-  private applyStatus(status: BatchStatusResponse): void {
-    this.items.set(status.items);
-    this.batchStatus.set(status.status);
-    this.retrying.set(status.retrying);
-    // Populate appState snacks for the flow that reads them below the progressive queue.
-    const snacks: Snack[] = status.items
+  private handlePollError(err: unknown): void {
+    if (err instanceof BatchPollingTimeoutError) {
+      // FR-010/SC-004: bounded lifetime elapsed — terminal, user-visible error, progress stopped.
+      this.creating.set(false);
+      this.retrying.set(false);
+      this.batchStatus.set('FAILED');
+      this.errorMessage.set(err.message);
+      return;
+    }
+    this.errorMessage.set(this.errorService.getMessage(err));
+  }
+
+  private ownsItem(target: string, batchId: string): boolean {
+    const owner = this.ownerBatchId.get(target);
+    return !owner || owner === batchId;
+  }
+
+  private mergeItem(item: BatchItem): void {
+    const current = this.items();
+    const idx = current.findIndex((i) => i.subtopicId === item.subtopicId);
+    if (idx >= 0) {
+      const next = [...current];
+      next[idx] = item;
+      this.items.set(next);
+    } else {
+      this.items.set([...current, item]);
+    }
+  }
+
+  private itemFor(target: string): BatchItem | undefined {
+    return this.items().find((i) => i.subtopicId === target);
+  }
+
+  private syncAppStateSnacks(): void {
+    const snacks: Snack[] = this.items()
       .filter((i) => i.snackStatus === 'READY' && i.snack)
       .map((i) => i.snack as Snack);
     this.appState.snacks.set(snacks);
+  }
 
-    // FR-003/SC-002: capture the prefetched quiz so "Start Quiz" consumes it without
-    // a second /api/quiz/generate call.
-    for (const item of status.items) {
+  private capturePrefetchedQuiz(items: BatchItem[]): void {
+    for (const item of items) {
       if (item.quizStatus === 'READY' && item.quizQuestions?.length) {
         this.appState.setQuizPrefetch(item.subtopicId, item.quizQuestions);
       }
     }
+  }
+
+  private setTerminalError(target: string, cause: string | null, custom?: string): void {
+    const reason = custom ?? (cause ? `Cause: ${cause}` : 'Cause: Unknown');
+    this.terminalErrors.update((m) => ({ ...m, [target]: reason }));
+    this.retrying.set(this.retryService.hasInFlight());
+  }
+
+  private clearTerminalError(target: string): void {
+    this.terminalErrors.update((m) => {
+      if (!(target in m)) {
+        return m;
+      }
+      const next = { ...m };
+      delete next[target];
+      return next;
+    });
+  }
+
+  /** Terminal error for a target, if its automatic budget was exhausted (FR-005). */
+  terminalError(subtopicId: string): string | null {
+    return this.terminalErrors()[subtopicId] ?? null;
+  }
+
+  /** Whether a generation cycle is currently in flight for the target (FR-007). */
+  isInFlight(subtopicId: string): boolean {
+    return this.retryService.isInFlight(subtopicId);
   }
 
   /** Advance to the next snack only when it is READY (FR-002). */
@@ -105,35 +271,15 @@ export class SnacksComponent implements OnDestroy {
     }
   }
 
-  /** Retry a failed snack (FR-004/FR-017). */
+  /** Manual retry: resets the target's budget and starts exactly one new cycle (FR-006). */
   retry(subtopicId: string): void {
-    const batchId = this.batchId();
-    if (!batchId) {
+    if (this.retryService.isInFlight(subtopicId)) {
       return;
     }
-    // Re-poll to surface a fresh batch status; retry is driven by a fresh createBatch for the failed item.
-    this.resetFailed(subtopicId);
-  }
-
-  private resetFailed(_subtopicId: string): void {
-    // For MVP, a retry simply re-creates the batch for all selected subtopics.
-    const themeId = this.themeId;
-    const subIds = this.subtopics.map((s) => s.id);
-    if (!themeId || subIds.length === 0) {
-      return;
-    }
-    this.items.set([]);
-    this.currentIndex.set(0);
-    this.creating.set(true);
-    this.batchService.createBatch(themeId, subIds).subscribe({
-      next: (created) => {
-        this.batchId.set(created.batchId);
-        this.appState.setBatch(created.batchId);
-        this.creating.set(false);
-        this.poll(created.batchId);
-      },
-      error: (err) => this.errorMessage.set(this.errorService.getMessage(err)),
-    });
+    this.retryService.resetBudget(subtopicId);
+    this.clearTerminalError(subtopicId);
+    this.errorMessage.set(null);
+    this.retryTarget(subtopicId);
   }
 
   startQuiz(subtopicId: string): void {

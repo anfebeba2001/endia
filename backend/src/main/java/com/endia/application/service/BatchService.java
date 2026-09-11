@@ -216,7 +216,12 @@ public class BatchService {
                     item.getQuizCause(),
                     prefetchedQuiz));
         }
-        boolean retrying = session.getStatus() == BatchStatus.IN_PROGRESS;
+        // FR-011: reflect *active* item generation, not the whole IN_PROGRESS batch lifetime.
+        // The backend cannot observe the LLM-level retry loop, so "any item GENERATING" is the
+        // narrowest truthful proxy available without new retry telemetry.
+        boolean retrying = items.stream().anyMatch(i ->
+                i.getSnackStatus() == GenerationStatus.GENERATING
+                        || i.getQuizStatus() == GenerationStatus.GENERATING);
         return new BatchStatusResult(batchId, session.getTheme().getId(), session.getStatus(), retrying, statuses);
     }
 
