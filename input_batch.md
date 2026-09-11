@@ -47,3 +47,5 @@
 - Task 3: Ready (awaiting implementation)
 - Task 4: Ready (awaiting implementation)
 - Task 6: Ready (awaiting implementation)
+
+10.When I finish the test there is no way back to the snacks, it gives me the option to go to the beginning but not to go back into the snacks
