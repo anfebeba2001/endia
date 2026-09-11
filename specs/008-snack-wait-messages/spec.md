@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-11
 
-**Status**: Draft
+**Status**: Implemented
 
 **Input**: User description: "The wait for snacks feels eternal. Add waiting messages such as 'waiting for llm response' / 'assembling response', but the messages must be ACCURATE for every real step — not generic/fake messages."
 
