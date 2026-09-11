@@ -42,28 +42,8 @@
 - [ ] If both primary and alternate providers fail, a meaningful error is returned (consistent with Task 5 surface behaviour).
 - [ ] Manual test simulates a primary-provider SERVICE_UNAVAILABLE and confirms the alternate provider is used and the flow still succeeds.
 
-### Task 9: Guarantee bounded snack generation — no infinite loops, no unanswered request
-
-- Status: no iniciado
-- Ready: yes
-- Sources: item 8
-- Description: Harden the snack-generation path so every generation step, retry, and batch worker run is time/count bounded and always reaches a terminal outcome, with no loop or request able to run forever.
-
-**Acceptance criteria:**
-- [ ] Every outbound LLM call in the snack path is bounded by a configured connect+read timeout (`llm.timeout-seconds`, default 30s), verified by a test where a hanging provider call cannot exceed that bound.
-- [ ] Automatic LLM retries remain bounded by `batch.retry.max-attempts` (default 3) and the re-roll in `generateValidSnack` cannot create an unbounded loop; a test asserts a failing/hanging provider produces a finite, bounded number of calls.
-- [ ] A single subtopic's snack generation is bounded by a configurable maximum (timeout and/or max attempts); exceeding it marks the item `FAILED` with a typed cause instead of blocking the batch worker.
-- [ ] The batch worker always reaches a terminal aggregate status (`COMPLETE`/`PARTIAL`/`FAILED`) within a bounded time even if one or all snack generations hang; verified by a test using a never-returning provider.
-- [ ] No synchronous HTTP request in the snack/batch path can be left unanswered indefinitely: `POST /api/batches` returns 202 immediately and `GET /api/batches/{id}` completes without waiting on background generation.
-- [ ] Frontend polling remains bounded (default 120s) and terminates on any terminal status or on timeout, surfacing a terminal error (preserved from 002/005).
-- [ ] Timeout/failure paths log the bounded outcome with the actual cause and no sensitive data.
-
 ## Current status
 
 - Task 3: Ready (awaiting implementation)
 - Task 4: Ready (awaiting implementation)
 - Task 6: Ready (awaiting implementation)
-- Task 9: Ready (awaiting implementation)
-
-
-8. the wait for the snacks feels eternal, let's add waiting messages "waiting for llm response" "assembling response" but it is important that the messages are accurate with every step, not generical messages, also let's make sure there are no infinite loops possible in the way of generating snacks, not any request not being responden infinitely.
