@@ -118,6 +118,26 @@ public class LlmConfig {
     }
 
     /**
+     * Separate bounded pool for per-subtopic snack generation (009, FR-008/FR-010/FR-021).
+     * Running each snack call here lets {@code BatchService} await a bounded
+     * {@code CompletableFuture} instead of blocking the batch worker on a hanging provider.
+     * The pool is bounded with daemon threads and keeps the default {@code AbortPolicy}:
+     * {@link ThreadPoolExecutor.CallerRunsPolicy} would run the hanging supplier synchronously
+     * on the batch worker before a future is returned, defeating the bound.
+     */
+    @Bean(name = "snackExecutor")
+    public TaskExecutor snackExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(8);
+        executor.setQueueCapacity(50);
+        executor.setThreadNamePrefix("snack-worker-");
+        executor.setDaemon(true);
+        executor.initialize();
+        return executor;
+    }
+
+    /**
      * Wraps the concrete {@link OpenAiLlmProvider} with the retry decorator so every
      * port method (snack AND quiz AND subtopics) auto-retries transient failures.
      * Services/controllers depend on this primary {@link LlmProvider} bean.

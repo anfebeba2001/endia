@@ -27,6 +27,10 @@ llm:
 
 # Batch / async retry configuration (FR-016/017/018)
 batch:
+  # 009: per-subtopic wall-clock bound around snack generation (includes retries + one re-roll).
+  snack-timeout-seconds: ${BATCH_SNACK_TIMEOUT_SECONDS:240}
+  # 009: wall-clock bound on the parallel quiz prefetch join.
+  quiz-join-timeout-seconds: ${BATCH_QUIZ_JOIN_TIMEOUT_SECONDS:240}
   retry:
     max-attempts: ${BATCH_RETRY_MAX_ATTEMPTS:3}
     initial-backoff-ms: ${BATCH_RETRY_INITIAL_BACKOFF_MS:1000}

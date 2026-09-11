@@ -148,6 +148,10 @@ cd backend
 mvn test -Pintegration
 ```
 
+> On hosts with Docker Engine 29+, docker-java's default API version may be rejected; add
+> `-DargLine="-Dapi.version=1.44"` (e.g. `mvn test -Pintegration -DargLine="-Dapi.version=1.44"`).
+> This is an environment invocation detail, not a code requirement.
+
 `BoundedSnackGenerationIntegrationTest` runs the real Spring context with a **never-returning**
 `LlmProvider` stub and short `batch.snack-timeout-seconds=2` / `batch.quiz-join-timeout-seconds=2`,
 asserting:

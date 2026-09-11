@@ -59,6 +59,20 @@ class RetryingLlmProviderTest {
         assertEquals(1, calls.get());
     }
 
+    @Test
+    void retriesExactlyTheConfiguredMaxAttempts() {
+        // 009/FR-004: the bound is the configured max-attempts, not a hardcoded 3.
+        AtomicInteger calls = new AtomicInteger();
+        LlmProvider delegate = new StubProvider(() -> {
+            calls.incrementAndGet();
+            throw new LlmGenerationException(LlmErrorCause.TIMEOUT, true, "timeout");
+        });
+
+        RetryingLlmProvider provider = new RetryingLlmProvider(delegate, 5, 1, 2.0, 10, 0.0);
+        assertThrows(LlmGenerationException.class, () -> provider.suggestSubtopics("Theme"));
+        assertEquals(5, calls.get());
+    }
+
     private static class StubProvider implements LlmProvider {
         private final java.util.function.Supplier<?> supplier;
 

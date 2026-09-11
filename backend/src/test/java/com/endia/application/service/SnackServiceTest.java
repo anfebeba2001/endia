@@ -4,6 +4,7 @@ import com.endia.application.port.LlmProvider;
 import com.endia.application.port.SnackPhaseListener;
 import com.endia.domain.enums.SnackGenerationPhase;
 import com.endia.domain.exception.EntityNotFoundException;
+import com.endia.domain.exception.ServiceUnavailableException;
 import com.endia.domain.model.Snack;
 import com.endia.domain.model.Subtopic;
 import com.endia.domain.model.Theme;
@@ -26,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -213,5 +215,22 @@ class SnackServiceTest {
 
         assertEquals("The light reactions convert light into chemical energy.", snack.getConcept());
         verify(snackRepository).save(any(Snack.class));
+    }
+
+    // ---- 009: the re-roll is exactly one (FR-005/FR-006/SC-002) ----
+
+    @Test
+    void invalidContentTwiceReRollsExactlyOnceThenThrowsTypedFailure() {
+        when(subtopicRepository.findById(subtopicId)).thenReturn(Optional.of(subtopic));
+        LlmProvider.GeneratedSnack bad = new LlmProvider.GeneratedSnack(
+                "Concept", "", "WhyItMatters", List.of("Related"));
+        // Both the initial call and the single re-roll return invalid content.
+        when(llmProvider.generateSnack("Photosynthesis", "Light reactions")).thenReturn(bad);
+
+        assertThrows(ServiceUnavailableException.class,
+                () -> snackService.generateSingleSnack(subtopicId));
+
+        // Exactly two calls: the initial attempt plus one bounded re-roll. No third call.
+        verify(llmProvider, times(2)).generateSnack("Photosynthesis", "Light reactions");
     }
 }

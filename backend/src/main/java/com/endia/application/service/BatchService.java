@@ -35,7 +35,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Orchestrates the batch flow (FR-001..004): one request persists a {@link StudySession}
@@ -47,6 +50,9 @@ public class BatchService {
 
     private static final Logger log = LoggerFactory.getLogger(BatchService.class);
 
+    /** Documented default for the per-subtopic snack wall-clock bound (009, FR-011). */
+    static final int DEFAULT_SNACK_TIMEOUT_SECONDS = 240;
+
     private final JpaThemeRepository themeRepository;
     private final JpaSubtopicRepository subtopicRepository;
     private final JpaStudySessionRepository studySessionRepository;
@@ -57,7 +63,9 @@ public class BatchService {
     private final SnackPhaseRegistry phaseRegistry;
     private final TaskExecutor batchExecutor;
     private final TaskExecutor quizExecutor;
+    private final TaskExecutor snackExecutor;
     private final int quizJoinTimeoutSeconds;
+    private final int snackTimeoutSeconds;
     private final BatchService self;
 
     public BatchService(JpaThemeRepository themeRepository,
@@ -70,7 +78,9 @@ public class BatchService {
                         SnackPhaseRegistry phaseRegistry,
                         @Qualifier("batchExecutor") TaskExecutor batchExecutor,
                         @Qualifier("quizExecutor") TaskExecutor quizExecutor,
+                        @Qualifier("snackExecutor") TaskExecutor snackExecutor,
                         @Value("${batch.quiz-join-timeout-seconds:240}") int quizJoinTimeoutSeconds,
+                        @Value("${batch.snack-timeout-seconds:240}") int snackTimeoutSeconds,
                         @Lazy BatchService self) {
         this.themeRepository = themeRepository;
         this.subtopicRepository = subtopicRepository;
@@ -82,7 +92,12 @@ public class BatchService {
         this.phaseRegistry = phaseRegistry;
         this.batchExecutor = batchExecutor;
         this.quizExecutor = quizExecutor;
+        this.snackExecutor = snackExecutor;
         this.quizJoinTimeoutSeconds = quizJoinTimeoutSeconds;
+        // A non-positive bound must never hang or fail unpredictably: normalize to the default.
+        this.snackTimeoutSeconds = snackTimeoutSeconds > 0
+                ? snackTimeoutSeconds
+                : DEFAULT_SNACK_TIMEOUT_SECONDS;
         this.self = self;
     }
 
@@ -141,7 +156,7 @@ public class BatchService {
             phaseRegistry.clear(subtopicId);
             try {
                 SnackPhaseListener listener = phase -> phaseRegistry.update(subtopicId, phase);
-                Snack snack = snackService.generateSingleSnack(subtopicId, listener);
+                Snack snack = generateSnackBounded(subtopicId, listener);
                 item.setSnack(snack);
                 item.setSnackStatus(GenerationStatus.READY);
                 item.setSnackCause(null);
@@ -170,17 +185,83 @@ public class BatchService {
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
                 .orTimeout(quizJoinTimeoutSeconds, TimeUnit.SECONDS)
                 .exceptionally(ex -> {
-                    log.warn("Quiz prefetch join did not complete within {}s for batch {}; aggregating with current item states",
-                            quizJoinTimeoutSeconds, sessionId);
+                    LlmErrorCause cause = (ex instanceof TimeoutException
+                            || ex.getCause() instanceof TimeoutException)
+                            ? LlmErrorCause.TIMEOUT
+                            : LlmErrorCause.UNAVAILABLE;
+                    log.warn("Quiz prefetch join for batch {} did not complete within {}s; "
+                                    + "bounded outcome cause {}; finalizing non-terminal items before aggregation",
+                            sessionId, quizJoinTimeoutSeconds, cause);
                     return null;
                 })
                 .join();
 
+        // 009/FR-012/FR-014: after the bounded join, any item still PENDING/GENERATING (snack or
+        // quiz) must be finalized to a terminal state so aggregation can never fall through to
+        // IN_PROGRESS. TIMEOUT is the accurate typed cause for an item that exceeded its bound.
+        List<StudySessionItem> settledItems = itemRepository.findBySessionId(sessionId);
+        for (StudySessionItem item : settledItems) {
+            boolean changed = false;
+            if (isNonTerminal(item.getSnackStatus())) {
+                item.setSnackStatus(GenerationStatus.FAILED);
+                item.setSnackCause(LlmErrorCause.TIMEOUT);
+                changed = true;
+            }
+            if (isNonTerminal(item.getQuizStatus())) {
+                item.setQuizStatus(GenerationStatus.FAILED);
+                item.setQuizCause(LlmErrorCause.TIMEOUT);
+                changed = true;
+            }
+            if (changed) {
+                itemRepository.save(item);
+            }
+        }
+
         // Aggregate final batch status.
-        List<StudySessionItem> finalItems = itemRepository.findBySessionId(sessionId);
         StudySession session = studySessionRepository.findById(sessionId).orElseThrow();
-        session.setStatus(aggregateStatus(finalItems));
+        session.setStatus(aggregateStatus(settledItems));
         studySessionRepository.save(session);
+    }
+
+    /**
+     * 009/FR-007..FR-011: runs a single subtopic's snack generation on the separate
+     * {@code snackExecutor} pool and bounds the wait with {@code orTimeout}. A never-returning
+     * provider therefore cannot block the batch worker: the bound fires, the item is marked
+     * {@code FAILED} with the typed {@link LlmErrorCause#TIMEOUT}, and the worker proceeds.
+     *
+     * <p>{@code orTimeout} completes the future but does not interrupt the running task; the pool is
+     * bounded with daemon threads and the default AbortPolicy so the blast radius stays bounded.
+     */
+    private Snack generateSnackBounded(UUID subtopicId, SnackPhaseListener listener) {
+        CompletableFuture<Snack> future;
+        try {
+            future = CompletableFuture.supplyAsync(
+                    () -> snackService.generateSingleSnack(subtopicId, listener), snackExecutor);
+        } catch (RejectedExecutionException e) {
+            log.warn("Snack generation for subtopic {} could not be scheduled (executor saturated); "
+                    + "marking FAILED with cause {}", subtopicId, LlmErrorCause.UNAVAILABLE);
+            throw new LlmGenerationException(LlmErrorCause.UNAVAILABLE, false,
+                    "Snack generation could not be scheduled.", e);
+        }
+        try {
+            return future.orTimeout(snackTimeoutSeconds, TimeUnit.SECONDS).join();
+        } catch (CompletionException e) {
+            if (e.getCause() instanceof TimeoutException) {
+                log.warn("Snack generation for subtopic {} exceeded the {}s per-subtopic bound; "
+                        + "marking FAILED with cause {}", subtopicId, snackTimeoutSeconds, LlmErrorCause.TIMEOUT);
+                throw new LlmGenerationException(LlmErrorCause.TIMEOUT, false,
+                        "Snack generation exceeded the per-subtopic time bound.", e);
+            }
+            if (e.getCause() instanceof LlmGenerationException lge) {
+                // Preserve the typed cause (QUOTA/TIMEOUT/NETWORK/…) for the existing catch.
+                throw lge;
+            }
+            throw e;
+        }
+    }
+
+    private boolean isNonTerminal(GenerationStatus status) {
+        return status == GenerationStatus.PENDING || status == GenerationStatus.GENERATING;
     }
 
     private void generateQuizForItem(UUID itemId, UUID subtopicId) {
@@ -206,6 +287,11 @@ public class BatchService {
     }
 
     private BatchStatus aggregateStatus(List<StudySessionItem> items) {
+        // 009/FR-012: an empty batch must terminate immediately rather than fall through to
+        // IN_PROGRESS (the only non-terminal status).
+        if (items.isEmpty()) {
+            return BatchStatus.FAILED;
+        }
         boolean anyInProgress = false;
         boolean anyReady = false;
         boolean anyFailed = false;

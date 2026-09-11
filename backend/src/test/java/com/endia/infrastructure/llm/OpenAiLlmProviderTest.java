@@ -176,6 +176,26 @@ class OpenAiLlmProviderTest {
     }
 
     @Test
+    void configDrivenConnectAndReadTimeoutBoundsHangingResponse() {
+        // 009/FR-001/FR-002/FR-003/SC-001/SC-010: the RestClient built by LlmConfig from
+        // llm.timeout-seconds must bound both connect and read, so a delayed response fails
+        // at (or before) the configured bound rather than hanging.
+        server.enqueue(new MockResponse().setBodyDelay(3, TimeUnit.SECONDS).setBody("{}"));
+        LlmConfig shortConfig = config("test-api-key", 1, server.url("/v1").toString());
+        RestClient restClient = shortConfig.llmRestClient();
+        OpenAiLlmProvider boundedProvider = new OpenAiLlmProvider(restClient, shortConfig, templates);
+
+        long startNanos = System.nanoTime();
+        LlmGenerationException ex = assertThrows(LlmGenerationException.class,
+                () -> boundedProvider.suggestSubtopics("Theme"));
+        long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
+
+        assertEquals(LlmErrorCause.TIMEOUT, ex.getCauseType());
+        assertTrue(elapsedMs < 3000,
+                "call must fail at the configured 1s bound, but took " + elapsedMs + "ms");
+    }
+
+    @Test
     void networkCauseIsMappedWhenConnectRefused() {
         OpenAiLlmProvider p = new OpenAiLlmProvider(
                 RestClient.builder().requestFactory(factory(2)).build(),
