@@ -133,4 +133,28 @@ class SnackServiceTest {
         assertTrue(called[0]);
         assertEquals(subtopic, snack.getSubtopic());
     }
+
+    // ---- 005: batch by-id overload resolves related data inside the transaction ----
+
+    @Test
+    void generateSingleSnackByIdLoadsSubtopicAndThemeAndPersists() {
+        when(subtopicRepository.findById(subtopicId)).thenReturn(Optional.of(subtopic));
+        when(llmProvider.generateSnack("Photosynthesis", "Light reactions")).thenReturn(validSnack());
+        when(snackRepository.save(any(Snack.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Snack snack = snackService.generateSingleSnack(subtopicId);
+
+        assertEquals("The light reactions convert light into chemical energy.", snack.getConcept());
+        assertEquals(subtopic, snack.getSubtopic());
+        // The related subtopic (and lazily its theme) must be resolved via the repository inside the transaction.
+        verify(subtopicRepository).findById(subtopicId);
+        verify(snackRepository).save(any(Snack.class));
+    }
+
+    @Test
+    void generateSingleSnackByIdThrowsWhenSubtopicNotFound() {
+        when(subtopicRepository.findById(subtopicId)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class, () -> snackService.generateSingleSnack(subtopicId));
+    }
 }

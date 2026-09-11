@@ -21,6 +21,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.Optional;
@@ -32,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -65,10 +68,11 @@ class BatchServiceTest {
     @BeforeEach
     void setUp() {
         counter = 0;
-        // BatchExecutor executes runnables inline so runBatch is deterministic.
+        // Both executors execute runnables inline so runBatch is deterministic.
         TaskExecutor syncExecutor = Runnable::run;
         batchService = new BatchService(themeRepository, subtopicRepository, studySessionRepository,
-                itemRepository, quizQuestionRepository, snackService, quizService, syncExecutor, self);
+                itemRepository, quizQuestionRepository, snackService, quizService, syncExecutor, syncExecutor,
+                240, self);
         themeId = UUID.randomUUID();
         theme = new Theme("Photosynthesis");
         theme.setId(themeId);
@@ -103,6 +107,39 @@ class BatchServiceTest {
     }
 
     @Test
+    void createBatchDefersWorkerUntilAfterCommit() {
+        // FR-005/FR-006 regression: with an active transaction the worker must only be
+        // triggered in afterCommit, never before the creating transaction commits.
+        UUID sessionId = UUID.randomUUID();
+        UUID sub1 = UUID.randomUUID();
+        Subtopic s1 = new Subtopic(theme, "S1");
+        s1.setId(sub1);
+        when(themeRepository.findById(themeId)).thenReturn(Optional.of(theme));
+        when(subtopicRepository.findById(sub1)).thenReturn(Optional.of(s1));
+        when(studySessionRepository.save(any(StudySession.class))).thenAnswer(inv -> {
+            StudySession s = inv.getArgument(0);
+            s.setId(sessionId);
+            return s;
+        });
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            batchService.createBatch(themeId, List.of(sub1));
+
+            // Still inside the transaction: the worker must not have started.
+            verify(self, never()).runBatch(sessionId);
+
+            // Simulate the transaction committing.
+            for (TransactionSynchronization synchronization : TransactionSynchronizationManager.getSynchronizations()) {
+                synchronization.afterCommit();
+            }
+            verify(self).runBatch(sessionId);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
     void runBatchTransitionsStatusesWithPartialFailure() {
         UUID sessionId = UUID.randomUUID();
         StudySession session = new StudySession(theme);
@@ -119,10 +156,10 @@ class BatchServiceTest {
 
         when(itemRepository.findBySessionId(sessionId)).thenReturn(List.of(item1, item2));
         when(studySessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
-        // item1 snack + quiz succeed
-        when(snackService.generateSingleSnack(s1)).thenReturn(new Snack(s1, "c1", "m1", "w1", List.of("r1")));
+        // item1 snack + quiz succeed (batch resolves the subtopic by id, never by entity)
+        when(snackService.generateSingleSnack(s1.getId())).thenReturn(new Snack(s1, "c1", "m1", "w1", List.of("r1")));
         // item2 snack fails with QUOTA
-        when(snackService.generateSingleSnack(s2)).thenThrow(new LlmGenerationException(LlmErrorCause.QUOTA, true, "quota"));
+        when(snackService.generateSingleSnack(s2.getId())).thenThrow(new LlmGenerationException(LlmErrorCause.QUOTA, true, "quota"));
         // quizzes both succeed (quizService.generateQuiz checks by subtopic id)
         when(quizService.generateQuiz(any(UUID.class), anyInt())).thenReturn(List.of());
         // parallel quiz reload
@@ -139,6 +176,10 @@ class BatchServiceTest {
         assertEquals(LlmErrorCause.QUOTA, item2.getSnackCause());
         assertEquals(GenerationStatus.READY, item2.getQuizStatus());
         assertEquals(BatchStatus.PARTIAL, session.getStatus());
+        // FR-002 regression guard: the worker must use the by-id overload, never pass a detached entity.
+        verify(snackService).generateSingleSnack(s1.getId());
+        verify(snackService).generateSingleSnack(s2.getId());
+        verify(snackService, never()).generateSingleSnack(any(Subtopic.class));
     }
 
     @Test

@@ -59,15 +59,22 @@ public class SnackService {
     }
 
     /**
+     * Batch-safe overload: resolves the subtopic (and lazily its theme) inside the
+     * transaction so related data is never accessed on a detached instance (FR-001/FR-002).
+     */
+    @Transactional
+    public Snack generateSingleSnack(UUID subtopicId) {
+        Subtopic subtopic = subtopicRepository.findById(subtopicId)
+                .orElseThrow(() -> new EntityNotFoundException("Subtopic", subtopicId));
+        return generateAndPersist(subtopic);
+    }
+
+    /**
      * Generates and persists a single snack for a subtopic (reused by the batch worker).
      */
     @Transactional
     public Snack generateSingleSnack(Subtopic subtopic) {
-        String themePrompt = subtopic.getTheme().getPrompt();
-        Snack snack = generateValidSnack(themePrompt, subtopic.getName());
-        snack.setSubtopic(subtopic);
-        snackRepository.save(snack);
-        return snack;
+        return generateAndPersist(subtopic);
     }
 
     /**
@@ -75,10 +82,22 @@ public class SnackService {
      */
     @Transactional
     public Snack generateSingleSnack(Subtopic subtopic, Consumer<Snack> onComplete) {
-        Snack snack = generateSingleSnack(subtopic);
+        Snack snack = generateAndPersist(subtopic);
         if (onComplete != null) {
             onComplete.accept(snack);
         }
+        return snack;
+    }
+
+    /**
+     * Shared generation/persistence logic for every overload. Callers must hold an open
+     * persistence context so {@code subtopic.getTheme()} is resolvable.
+     */
+    private Snack generateAndPersist(Subtopic subtopic) {
+        String themePrompt = subtopic.getTheme().getPrompt();
+        Snack snack = generateValidSnack(themePrompt, subtopic.getName());
+        snack.setSubtopic(subtopic);
+        snackRepository.save(snack);
         return snack;
     }
 

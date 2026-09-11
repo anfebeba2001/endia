@@ -19,7 +19,14 @@
     </div>
   }
 
-  @if (!creating() && items().length === 0 && !errorMessage()) {
+  @if (!creating() && polling() && items().length === 0) {
+    <div class="loading state" aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>Preparing your snack…</p>
+    </div>
+  }
+
+  @if (showEmptyState()) {
     <div class="empty-state">
       <span class="empty-state__mark" aria-hidden="true"></span>
       <h2 class="empty-state__title">The counter is empty</h2>

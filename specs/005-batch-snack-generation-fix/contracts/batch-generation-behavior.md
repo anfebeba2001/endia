@@ -30,6 +30,7 @@
 ## C4. Guaranteed terminal aggregate status (FR-005 / FR-006)
 
 - Every batch MUST reach a terminal aggregate status (`COMPLETE`, `PARTIAL`, or `FAILED`); it MUST NOT remain `IN_PROGRESS` with items pending indefinitely.
+- The worker MUST be triggered only **after** the `createBatch` transaction commits (transaction synchronization `afterCommit`), so it can never start on a warm executor before the batch and its items are visible and leave the batch `IN_PROGRESS` with `PENDING` items.
 - The worker MUST NOT block indefinitely on nested tasks. The quiz join MUST be bounded (configurable, default 240 s) so that even a hung child cannot prevent aggregation; on timeout the worker proceeds to aggregate the current item states.
 - The overall terminal time is naturally bounded by the per-call LLM timeout multiplied by the bounded retry count across the sequentially-generated snacks.
 

@@ -385,6 +385,11 @@ export interface BatchMockOptions {
   createStatusFor?: (attempt: number) => number | undefined;
   /** Delay (ms) before fulfilling POST /api/batches. */
   createDelayMs?: number;
+  /**
+   * Delay (ms) before fulfilling each GET /api/batches/{id}. A number applies to every poll;
+   * a function receives the 1-based global poll count (used to delay only the first poll).
+   */
+  pollDelayMs?: number | ((poll: number) => number);
 }
 
 export interface BatchMockState {
@@ -498,6 +503,10 @@ export async function setupConfigurableBatchMock(
     const batchId = url.pathname.split('/').pop() ?? '';
     const subIds = subtopicsByBatch.get(batchId) ?? SUBTOPICS.map((s) => s.id);
     pollsByBatch.set(batchId, (pollsByBatch.get(batchId) ?? 0) + 1);
+    const delay = typeof opts.pollDelayMs === 'function' ? opts.pollDelayMs(pollCount) : opts.pollDelayMs;
+    if (delay && delay > 0) {
+      await new Promise((r) => setTimeout(r, delay));
+    }
     const resp = opts.status(batchId, subIds, pollCount);
     await route.fulfill({
       status: 200,
