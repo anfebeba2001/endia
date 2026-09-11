@@ -15,7 +15,8 @@
 
 .snack-index {
   position: sticky;
-  top: 1rem;
+  /* clear the sticky app header (~3.7rem) so the index top never slides under it */
+  top: 4.5rem;
   padding: 0.9rem;
   background: var(--surface-soft);
   border: 1px solid var(--hairline);
@@ -41,20 +42,24 @@
     font: 600 0.82rem/1.4 var(--font-mono);
     letter-spacing: 0.02em;
     cursor: pointer;
+    touch-action: manipulation;
+    overflow-wrap: anywhere;
     transition:
       background 0.15s ease,
       border-color 0.15s ease,
       color 0.15s ease;
 
-    &:hover:not(:disabled) {
+    &:hover:not(:disabled):not(&--active) {
       background: var(--surface-card);
       border-color: var(--hairline-strong);
     }
 
     &--active {
       background: var(--accent-soft);
-      border-color: rgba(178, 58, 34, 0.4);
+      border-color: var(--accent-deep);
       color: var(--accent-deep);
+      /* left rail: a non-color cue for the current snack (WCAG 1.4.1) */
+      box-shadow: inset 3px 0 0 var(--accent);
     }
 
     &:disabled {
@@ -234,6 +239,9 @@
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
+  /* status reads left of the actions, which stay anchored right */
+  order: -1;
+  margin-right: auto;
   color: var(--muted);
   font-size: 0.9rem;
 }
