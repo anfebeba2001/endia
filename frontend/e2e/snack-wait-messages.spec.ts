@@ -47,23 +47,47 @@ test.describe('US1 — accurate step-by-step snack waiting messages', () => {
 
     await goToSnacksPage(page);
 
-    const seen = new Set<string>();
+    // Capture the distinct phase messages in the order they are rendered. The pre-first-poll
+    // generic text and transient empty samples are ignored; only exact mapped copy is kept.
+    const mapped = new Set(Object.values(MESSAGES));
+    const observed: string[] = [];
     const deadline = Date.now() + 20_000;
-    while (Date.now() < deadline && PHASES.some((p) => !seen.has(MESSAGES[p]))) {
+    while (Date.now() < deadline && observed.length < PHASES.length) {
       if (await inProgressText(page).count()) {
         const text = (await inProgressText(page).first().innerText()).trim();
-        if (text) {
-          seen.add(text);
+        if (mapped.has(text) && observed[observed.length - 1] !== text) {
+          observed.push(text);
         }
       }
       await page.waitForTimeout(100);
     }
 
-    for (const phase of PHASES) {
-      expect(seen, `expected to observe "${MESSAGES[phase]}"`).toContain(MESSAGES[phase]);
-    }
-    // The pre-first-poll generic ("Preparing your snack…") is intentionally retained until an
-    // item exists; once it does, the phase-specific messages above replace it (FR-005/SC-002).
+    // Each reported phase must render exactly its mapped message, in real phase order
+    // (SC-001: no message for a phase the backend is not in; SC-002: all four observable).
+    expect(observed).toEqual(PHASES.map((p) => MESSAGES[p]));
+  });
+
+  test('replaces the generic preparing message once a phase is reported (FR-005)', async ({
+    page,
+  }) => {
+    await setupThemesSuggestMock(page, ONE);
+    await setupConfigurableBatchMock(page, {
+      status: (_batchId, subIds) => ({
+        status: 'IN_PROGRESS',
+        retrying: true,
+        items: [batchItemGenerating(subIds[0], 'AWAITING_MODEL')],
+      }),
+    });
+
+    await goToSnacksPage(page);
+
+    await expect(inProgressText(page).first()).toHaveText(MESSAGES['AWAITING_MODEL'], {
+      timeout: 10_000,
+    });
+    // The single generic in-progress message must not survive once a real phase is reported.
+    await expect(page.locator('.loading.state p', { hasText: 'Preparing your snack…' })).toHaveCount(
+      0,
+    );
   });
 
   test('tracks the phase per item; one item never shows another item’s phase (FR-008)', async ({
@@ -86,7 +110,10 @@ test.describe('US1 — accurate step-by-step snack waiting messages', () => {
     await expect(inProgressText(page).first()).toHaveText(MESSAGES['AWAITING_MODEL'], {
       timeout: 10_000,
     });
-    await expect(inProgressText(page).first()).not.toHaveText(MESSAGES['ASSEMBLING']);
+    // The other item's phase must never bleed into the rendered item (FR-008).
+    await expect(
+      page.locator('.loading.state p', { hasText: MESSAGES['ASSEMBLING'] }),
+    ).toHaveCount(0);
   });
 
   test('shows no phase message for a READY item (FR-010/SC-004)', async ({ page }) => {
