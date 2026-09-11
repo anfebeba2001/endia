@@ -1,50 +1,43 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# Endia Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Spec-Driven Development
+Every feature starts with a written specification. Code exists only to fulfill a spec. No feature is implemented without a corresponding spec.md, plan.md, and tasks.md. The spec is the source of truth; code follows spec, not the other way around.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Clean Architecture (Layered)
+Backend follows classic layered architecture: domain → application → infrastructure → interfaces. Domain has zero external dependencies. Application depends on domain only (via ports). Infrastructure implements ports. Interfaces wires everything together. Frontend follows Angular standalone component patterns with signals-first approach.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. LLM Abstraction First
+All LLM interactions go through a provider interface (`LlmProvider`). No provider-specific logic leaks into services or controllers. Swapping providers requires only a new implementation + config change. Prompts are externalized, not hardcoded in Java strings.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Quality Gate for Generated Content
+All LLM-generated quiz content passes through a quality gate before being served. Distractors must be semantically plausible, non-duplicate, and non-trivial. Failed validation triggers a re-roll (max 1 retry). This is non-negotiable for educational accuracy.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. MVP-First, Iterate
+Ship the smallest viable loop first. Gamification, auth, and advanced features come AFTER the core learning loop works end-to-end. Do not build what the MVP does not need. YAGNI applies: if it's not in the current spec, don't build it.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Technology Constraints
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+- **Backend**: Java 21, Spring Boot 3.4.x, Spring Data JPA, Maven
+- **Frontend**: Angular 19+, standalone components, signals
+- **Database**: MySQL 8.x (no H2/SQLite in any environment)
+- **LLM**: OpenAI-compatible via RestClient, configured via env vars
+- **Build**: Maven for backend, Angular CLI for frontend, monorepo layout
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+## Development Workflow
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+- Features branch from `feature/endia-mvp`
+- Each spec lives in `specs/<feature-name>/`
+- Weekly instructions live in `instructions/week-NN-.../`
+- Commit messages reference spec/task IDs where applicable
+- No `main` merges until MVP is validated end-to-end
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes all other practices. Amendments require:
+1. Written rationale
+2. Updated constitution document
+3. Migration plan for existing code
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-09-09 | **Last Amended**: 2026-09-09

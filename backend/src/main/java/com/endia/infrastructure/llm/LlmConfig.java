@@ -11,6 +11,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
+import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * Configures the LLM provider beans from environment variables, plus the retry
@@ -93,6 +94,25 @@ public class LlmConfig {
         executor.setMaxPoolSize(8);
         executor.setQueueCapacity(50);
         executor.setThreadNamePrefix("batch-worker-");
+        executor.initialize();
+        return executor;
+    }
+
+    /**
+     * Separate pool for nested per-subtopic quiz prefetch. Keeping it distinct from
+     * {@code batchExecutor} removes the cyclic wait that deadlocked the batch worker
+     * (FR-004). {@link ThreadPoolExecutor.CallerRunsPolicy} is the liveness valve: if the
+     * quiz pool and queue saturate, the submitting batch worker executes the quiz itself,
+     * so the bounded join can always complete and the batch always reaches a terminal status.
+     */
+    @Bean(name = "quizExecutor")
+    public TaskExecutor quizExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(4);
+        executor.setMaxPoolSize(16);
+        executor.setQueueCapacity(100);
+        executor.setThreadNamePrefix("quiz-worker-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.initialize();
         return executor;
     }

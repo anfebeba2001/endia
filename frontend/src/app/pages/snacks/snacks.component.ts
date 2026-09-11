@@ -23,6 +23,8 @@ export class SnacksComponent implements OnDestroy {
   readonly batchId = signal<string | null>(null);
   readonly errorMessage = signal<string | null>(null);
   readonly creating = signal(true);
+  /** True from create/retry success until the first terminal status or poll error (FR-009/FR-010). */
+  readonly polling = signal(false);
   readonly loadingSubtopic = signal<string | null>(null);
   readonly currentIndex = signal(0);
   /** Per-target terminal error message shown after the automatic budget is exhausted (FR-005). */
@@ -38,6 +40,20 @@ export class SnacksComponent implements OnDestroy {
     () => this.items()[this.currentIndex() + 1] ?? null,
   );
   readonly anyReady = computed(() => this.items().some((i) => i.snackStatus === 'READY'));
+
+  /**
+   * FR-009/FR-010/FR-011: the empty state is reserved for a genuinely terminal batch that
+   * produced no ready snacks. It must never render during creation, before the first poll
+   * response, or while the batch is still IN_PROGRESS.
+   */
+  readonly showEmptyState = computed(
+    () =>
+      !this.creating() &&
+      !this.polling() &&
+      this.items().length === 0 &&
+      this.batchStatus() !== 'IN_PROGRESS' &&
+      !this.errorMessage(),
+  );
 
   constructor(
     private appState: AppStateService,
@@ -77,6 +93,8 @@ export class SnacksComponent implements OnDestroy {
         this.batchId.set(created.batchId);
         this.appState.setBatch(created.batchId);
         this.creating.set(false);
+        // FR-009/FR-010: keep the progress state visible until the first terminal poll response.
+        this.polling.set(true);
         for (const id of subIds) {
           this.ownerBatchId.set(id, created.batchId);
           this.retryService.registerAttempt(id);
@@ -85,6 +103,7 @@ export class SnacksComponent implements OnDestroy {
       },
       error: (err) => {
         this.creating.set(false);
+        this.polling.set(false);
         this.errorMessage.set(this.errorService.getMessage(err));
       },
     });
@@ -128,6 +147,10 @@ export class SnacksComponent implements OnDestroy {
     this.syncAppStateSnacks();
     this.capturePrefetchedQuiz(status.items);
     this.maybeRetryFailed(status.items, batchId);
+    // FR-011/FR-013: a terminal status ends the cycle unless a fresh retry cycle is already in flight.
+    if (status.status !== 'IN_PROGRESS' && !this.retryService.hasInFlight()) {
+      this.polling.set(false);
+    }
   }
 
   private maybeRetryFailed(items: BatchItem[], batchId: string): void {
@@ -169,6 +192,8 @@ export class SnacksComponent implements OnDestroy {
     this.retryService.markInFlight(target);
     this.clearTerminalError(target);
     this.retrying.set(true);
+    // FR-009/FR-014: a retry cycle is active generation, so keep progress (and suppress the empty state).
+    this.polling.set(true);
 
     // FR-003: a single-target batch — never re-create the whole batch or regenerate healthy targets.
     this.batchService.createBatch(themeId, [target]).subscribe({
@@ -181,6 +206,7 @@ export class SnacksComponent implements OnDestroy {
         this.retryService.clearInFlight(target);
         this.retrying.set(this.retryService.hasInFlight());
         if (this.retryService.attemptsFor(target) >= 3) {
+          this.polling.set(false);
           this.setTerminalError(target, null, this.errorService.getMessage(err));
         } else {
           this.retryTarget(target);
@@ -190,6 +216,8 @@ export class SnacksComponent implements OnDestroy {
   }
 
   private handlePollError(err: unknown): void {
+    // FR-013/FR-014: any poll error (including the bounded-window timeout) ends the progress cycle.
+    this.polling.set(false);
     if (err instanceof BatchPollingTimeoutError) {
       // FR-010/SC-004: bounded lifetime elapsed — terminal, user-visible error, progress stopped.
       this.creating.set(false);

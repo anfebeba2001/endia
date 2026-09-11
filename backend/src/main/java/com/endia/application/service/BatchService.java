@@ -19,16 +19,20 @@ import com.endia.infrastructure.persistence.JpaThemeRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Orchestrates the batch flow (FR-001..004): one request persists a {@link StudySession}
@@ -48,6 +52,8 @@ public class BatchService {
     private final SnackService snackService;
     private final QuizService quizService;
     private final TaskExecutor batchExecutor;
+    private final TaskExecutor quizExecutor;
+    private final int quizJoinTimeoutSeconds;
     private final BatchService self;
 
     public BatchService(JpaThemeRepository themeRepository,
@@ -58,6 +64,8 @@ public class BatchService {
                         SnackService snackService,
                         QuizService quizService,
                         @Qualifier("batchExecutor") TaskExecutor batchExecutor,
+                        @Qualifier("quizExecutor") TaskExecutor quizExecutor,
+                        @Value("${batch.quiz-join-timeout-seconds:240}") int quizJoinTimeoutSeconds,
                         @Lazy BatchService self) {
         this.themeRepository = themeRepository;
         this.subtopicRepository = subtopicRepository;
@@ -67,6 +75,8 @@ public class BatchService {
         this.snackService = snackService;
         this.quizService = quizService;
         this.batchExecutor = batchExecutor;
+        this.quizExecutor = quizExecutor;
+        this.quizJoinTimeoutSeconds = quizJoinTimeoutSeconds;
         this.self = self;
     }
 
@@ -89,9 +99,22 @@ public class BatchService {
         }
         studySessionRepository.save(session);
 
-        self.runBatch(session.getId());
+        // FR-005/FR-006: trigger the async worker only AFTER this transaction commits.
+        // Otherwise the worker can start on a warm executor before the creating transaction
+        // commits, read zero items, and leave the batch stuck IN_PROGRESS with PENDING items.
+        UUID sessionId = session.getId();
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    self.runBatch(sessionId);
+                }
+            });
+        } else {
+            self.runBatch(sessionId);
+        }
 
-        return new BatchCreateResult(session.getId(), themeId, BatchStatus.IN_PROGRESS, items);
+        return new BatchCreateResult(sessionId, themeId, BatchStatus.IN_PROGRESS, items);
     }
 
     /**
@@ -106,7 +129,10 @@ public class BatchService {
             item.setSnackStatus(GenerationStatus.GENERATING);
             itemRepository.save(item);
             try {
-                Snack snack = snackService.generateSingleSnack(item.getSubtopic());
+                // FR-001/FR-002: only the id crosses the boundary; the subtopic (and its lazy
+                // theme) are resolved inside the transactional by-id overload, never detached.
+                UUID subtopicId = item.getSubtopic().getId();
+                Snack snack = snackService.generateSingleSnack(subtopicId);
                 item.setSnack(snack);
                 item.setSnackStatus(GenerationStatus.READY);
                 item.setSnackCause(null);
@@ -121,14 +147,22 @@ public class BatchService {
             itemRepository.save(item);
         }
 
-        // Quizzes in parallel (prefetch, FR-003).
+        // Quizzes in parallel on a separate pool so the batch worker can never be starved
+        // by its own children (FR-004). The join is bounded so aggregation always runs (FR-005/FR-006).
         List<CompletableFuture<Void>> futures = new ArrayList<>();
         for (StudySessionItem item : items) {
             UUID itemId = item.getId();
             UUID subtopicId = item.getSubtopic().getId();
-            futures.add(CompletableFuture.runAsync(() -> generateQuizForItem(itemId, subtopicId), batchExecutor));
+            futures.add(CompletableFuture.runAsync(() -> generateQuizForItem(itemId, subtopicId), quizExecutor));
         }
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                .orTimeout(quizJoinTimeoutSeconds, TimeUnit.SECONDS)
+                .exceptionally(ex -> {
+                    log.warn("Quiz prefetch join did not complete within {}s for batch {}; aggregating with current item states",
+                            quizJoinTimeoutSeconds, sessionId);
+                    return null;
+                })
+                .join();
 
         // Aggregate final batch status.
         List<StudySessionItem> finalItems = itemRepository.findBySessionId(sessionId);
