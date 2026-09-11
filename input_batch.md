@@ -54,6 +54,21 @@
 - [ ] The `ErrorResponse` response shape change does not break the frontend `error.service` message extraction (or is updated accordingly and verified).
 - [ ] Logs do not leak sensitive data (no prompt bodies, LLM keys, or user PII beyond what is necessary).
 
+### Task 7: Bound snack-generation reattempts and stop infinite retry/polling
+
+- Status: no iniciado
+- Ready: yes
+- Sources: item 7
+- Description: Snack generation can loop retrying/polling forever. Add an explicit reattempt counter capped at 3, only reattempt after a concrete error, stop at the 3rd attempt, and terminate polling on any non-`IN_PROGRESS` terminal state.
+
+**Acceptance criteria:**
+- [ ] A reattempt counter tracks snack-generation reattempts and never exceeds 3 total attempts; when the 3rd reattempt fails, no further reattempt is triggered.
+- [ ] A reattempt is only triggered after an explicit generation error is received (e.g. `FAILED` item status / typed `snackCause`, or a failed `POST /api/batches` call) — never on a blind timer while status is `IN_PROGRESS`.
+- [ ] After the 3rd failed reattempt the UI surfaces a clear terminal error state (message + no further automatic retry), and the user can still manually retry.
+- [ ] `BatchService.pollStatus`/`isTerminal` treats every non-`IN_PROGRESS` state as terminal — in particular `PARTIAL` (and `COMPLETE`/`FAILED`) stops the polling loop instead of polling forever.
+- [ ] The existing single-shot `POST /api/snacks/generate` flow still returns snacks/typed errors as before, and the `RetryingLlmProvider` LLM-level behavior (retry only on retryable `LlmGenerationException`, stop at `maxAttempts` = 3) is unchanged.
+- [ ] Manual test confirms a failing snack generation stops after the 3rd reattempt with a visible error, and a succeeding run completes normally.
+
 ## Current status
 
 - Task 1: Ready (awaiting implementation)
@@ -62,3 +77,4 @@
 - Task 4: Ready (awaiting implementation)
 - Task 5: COMPLETED (branch 004-topic-suggest-retry)
 - Task 6: Ready (awaiting implementation)
+- Task 7: Ready (awaiting implementation)
