@@ -31,19 +31,35 @@ export class SnacksComponent implements OnDestroy {
   /** True from create/retry success until the first terminal status or poll error (FR-009/FR-010). */
   readonly polling = signal(false);
   readonly loadingSubtopic = signal<string | null>(null);
-  readonly currentIndex = signal(0);
   /** Per-target terminal error message shown after the automatic budget is exhausted (FR-005). */
   readonly terminalErrors = signal<Record<string, string>>({});
   private readonly destroy$ = new Subject<void>();
   /** Which batch currently owns each target; prevents stale polls from double-triggering (FR-007). */
   private readonly ownerBatchId = new Map<string, string>();
 
+  /**
+   * FR-013/FR-012: the active position is the shared `AppStateService.currentSnackIndex`,
+   * clamped so a stale or out-of-range value never renders a blank card.
+   */
+  readonly currentIndex = computed(() => {
+    const len = this.items().length;
+    if (len === 0) {
+      return 0;
+    }
+    return Math.min(Math.max(this.appState.currentSnackIndex(), 0), len - 1);
+  });
   readonly currentSnack = computed<BatchItem | null>(
     () => this.items()[this.currentIndex()] ?? null,
   );
   readonly nextSnack = computed<BatchItem | null>(
     () => this.items()[this.currentIndex() + 1] ?? null,
   );
+  /** FR-015: Previous is disabled only at the first position. */
+  readonly hasPrev = computed(() => this.currentIndex() > 0);
+  /** FR-012: Next is unavailable at the last position. */
+  readonly hasNext = computed(() => this.currentIndex() < this.items().length - 1);
+  /** FR-016: Next only advances onto a READY snack (progressive delivery preserved). */
+  readonly canNext = computed(() => this.hasNext() && this.nextSnack()?.snackStatus === 'READY');
   readonly anyReady = computed(() => this.items().some((i) => i.snackStatus === 'READY'));
 
   /**
@@ -79,7 +95,15 @@ export class SnacksComponent implements OnDestroy {
   }
 
   private async init(): Promise<void> {
-    if (this.appState.snacks().length > 0) {
+    const existing = this.appState.snacks();
+    if (existing.length > 0) {
+      // FR-002/FR-004: return path — reuse already-generated snacks. No POST /api/batches,
+      // no polling. Hydrate the view model first, then clamp the stored index (ordering matters:
+      // clamping before hydration could reset the index to 0).
+      this.items.set(existing.map(toReadyBatchItem));
+      this.creating.set(false);
+      this.polling.set(false);
+      this.clampStoredIndex();
       return;
     }
     const themeId = this.themeId;
@@ -249,6 +273,22 @@ export class SnacksComponent implements OnDestroy {
     } else {
       this.items.set([...current, item]);
     }
+    this.clampStoredIndex();
+  }
+
+  /**
+   * FR-012/SC-005: keep the shared index inside the current item range so a stale value never
+   * renders a blank card. Called after hydration and whenever the item set changes.
+   */
+  private clampStoredIndex(): void {
+    const len = this.items().length;
+    if (len === 0) {
+      return;
+    }
+    const clamped = Math.min(Math.max(this.appState.currentSnackIndex(), 0), len - 1);
+    if (clamped !== this.appState.currentSnackIndex()) {
+      this.appState.setSnackIndex(clamped);
+    }
   }
 
   private itemFor(target: string): BatchItem | undefined {
@@ -302,10 +342,33 @@ export class SnacksComponent implements OnDestroy {
     return phaseToMessage(phase);
   }
 
-  /** Advance to the next snack only when it is READY (FR-002). */
+  /** FR-012: reject out-of-range targets so rapid clicks cannot push the index out of range. */
+  private goTo(index: number): void {
+    const len = this.items().length;
+    if (index < 0 || index >= len) {
+      return;
+    }
+    this.appState.setSnackIndex(index);
+  }
+
+  /** FR-015: move back exactly one; Previous is disabled only at index 0. */
+  prev(): void {
+    if (this.hasPrev()) {
+      this.goTo(this.currentIndex() - 1);
+    }
+  }
+
+  /** FR-016: advance to the next snack only when it is READY (progressive delivery preserved). */
   next(): void {
-    if (this.nextSnack()?.snackStatus === 'READY') {
-      this.currentIndex.set(this.currentIndex() + 1);
+    if (this.canNext()) {
+      this.goTo(this.currentIndex() + 1);
+    }
+  }
+
+  /** FR-009/FR-010: jump to a READY entry (guarded even though the button is disabled). */
+  selectIndex(i: number): void {
+    if (this.items()[i]?.snackStatus === 'READY') {
+      this.goTo(i);
     }
   }
 
@@ -320,7 +383,13 @@ export class SnacksComponent implements OnDestroy {
     this.retryTarget(subtopicId);
   }
 
-  startQuiz(subtopicId: string): void {
+  /** FR-017: the quiz targets the active snack's subtopic, never a stale/first one. */
+  startQuiz(): void {
+    const subtopicId =
+      this.currentSnack()?.snack?.subtopicId ?? this.currentSnack()?.subtopicId;
+    if (!subtopicId) {
+      return;
+    }
     const subtopic = this.subtopics.find((s) => s.id === subtopicId);
     if (!subtopic) {
       return;
@@ -338,4 +407,20 @@ export class SnacksComponent implements OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
   }
+}
+
+/**
+ * Return-path hydration (FR-004): map an already-generated `Snack` to a READY `BatchItem`,
+ * preserving `subtopicId`/`subtopicName`/`snack` for the card, the index, and "Start Quiz".
+ */
+function toReadyBatchItem(s: Snack): BatchItem {
+  return {
+    subtopicId: s.subtopicId,
+    subtopicName: s.subtopicName,
+    snackStatus: 'READY',
+    snack: s,
+    snackCause: null,
+    quizStatus: 'READY',
+    quizCause: null,
+  };
 }

@@ -77,9 +77,9 @@ no label and are mapped by the Requirement Coverage table at the end.
 
 **Purpose**: Verify the baseline and confirm the frozen scope/selector surfaces before any behavior change. No production code is written here.
 
-- [ ] T001 Verify the baseline: run `cd frontend && npm run build` (green) and `cd frontend && npx playwright test` (existing suite green); record the baseline spec/test counts. Required to prove SC-009 (no regression) later. (FR-021, SC-009)
-- [ ] T002 [P] Confirm the frontend-only freeze: verify `frontend/package.json` / `package-lock.json` need no edit, `git status` shows no `backend/` change, and there is no schema/migration/DTO delta (consistent with `contracts/backend-unchanged.md` and `data-model.md §6`). Record the finding. (FR-022, SC-010)
-- [ ] T003 [P] Confirm the existing selector contract: in the current tree, record that `.results-footer .primary-btn`, `.snack-card .primary-btn`, and `button.link-btn` (snacks page) each match exactly one element; this is the strict-mode baseline the new controls must not disturb. (FR-006, FR-023)
+- [X] T001 Verify the baseline: run `cd frontend && npm run build` (green) and `cd frontend && npx playwright test` (existing suite green); record the baseline spec/test counts. Required to prove SC-009 (no regression) later. (FR-021, SC-009)
+- [X] T002 [P] Confirm the frontend-only freeze: verify `frontend/package.json` / `package-lock.json` need no edit, `git status` shows no `backend/` change, and there is no schema/migration/DTO delta (consistent with `contracts/backend-unchanged.md` and `data-model.md §6`). Record the finding. (FR-022, SC-010)
+- [X] T003 [P] Confirm the existing selector contract: in the current tree, record that `.results-footer .primary-btn`, `.snack-card .primary-btn`, and `button.link-btn` (snacks page) each match exactly one element; this is the strict-mode baseline the new controls must not disturb. (FR-006, FR-023)
 
 **Checkpoint**: Baseline green, frontend-only freeze and selector contract confirmed — foundational state work can begin.
 
@@ -91,8 +91,8 @@ no label and are mapped by the Requirement Coverage table at the end.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T004 [P] In `frontend/src/app/services/app-state.service.ts`, add the navigation helpers `setSnackIndex(index: number): void` and `snackIndexForSubtopic(subtopicId: string | null): number` (returns the index in `snacks()` whose `subtopicId` matches, or `-1`); keep `setBatch()` and `reset()` resetting `currentSnackIndex` to `0` unchanged. (FR-013, FR-003, FR-018, data-model.md §1)
-- [ ] T005 [P] In `frontend/src/app/pages/snacks/snacks.component.ts`, remove the component-local `currentIndex = signal(0)` and add a clamped `readonly currentIndex = computed(...)` that reads `appState.currentSnackIndex()` and clamps to `[0, items().length - 1]` (returns `0` when empty); keep `currentSnack`/`nextSnack` derived from it. (FR-013, FR-012, FR-019, data-model.md §2)
+- [X] T004 [P] In `frontend/src/app/services/app-state.service.ts`, add the navigation helpers `setSnackIndex(index: number): void` and `snackIndexForSubtopic(subtopicId: string | null): number` (returns the index in `snacks()` whose `subtopicId` matches, or `-1`); keep `setBatch()` and `reset()` resetting `currentSnackIndex` to `0` unchanged. (FR-013, FR-003, FR-018, data-model.md §1)
+- [X] T005 [P] In `frontend/src/app/pages/snacks/snacks.component.ts`, remove the component-local `currentIndex = signal(0)` and add a clamped `readonly currentIndex = computed(...)` that reads `appState.currentSnackIndex()` and clamps to `[0, items().length - 1]` (returns `0` when empty); keep `currentSnack`/`nextSnack` derived from it. (FR-013, FR-012, FR-019, data-model.md §2)
 
 **Checkpoint**: Shared index store + clamped read exist; US1/US3 can now read and write one source of truth.
 
@@ -106,14 +106,14 @@ no label and are mapped by the Requirement Coverage table at the end.
 
 ### Tests for User Story 1 (write first, expect FAIL) ⚠️
 
-- [ ] T006 [P] [US1] Create `frontend/e2e/results-back-to-snacks.spec.ts` (NEW): drive the full flow with `setupAllMocks` to `/results`; assert both completion states ("Quiz complete" via `setupQuizSummaryMock`, "Perfect score!" via `setupQuizSummaryMock({ correctAnswers: 4 })`) render `.results-footer [data-testid="back-to-snacks"]` ("Back to snacks") and the restart `.primary-btn`; record `POST /api/batches` calls and assert the count does not increase after clicking "Back to snacks"; assert the quizzed subtopic's `.snack-card__chip` is active with the matching `.snack-index__item[aria-current="true"]`; assert no `.loading`/empty state for existing snacks; assert "Start a new theme" still navigates to `/`. (FR-001..FR-006, FR-018, SC-001..SC-003, SC-009)
+- [X] T006 [P] [US1] Create `frontend/e2e/results-back-to-snacks.spec.ts` (NEW): drive the full flow with `setupAllMocks` to `/results`; assert both completion states ("Quiz complete" via `setupQuizSummaryMock`, "Perfect score!" via `setupQuizSummaryMock({ correctAnswers: 4 })`) render `.results-footer [data-testid="back-to-snacks"]` ("Back to snacks") and the restart `.primary-btn`; record `POST /api/batches` calls and assert the count does not increase after clicking "Back to snacks"; assert the quizzed subtopic's `.snack-card__chip` is active with the matching `.snack-index__item[aria-current="true"]`; assert no `.loading`/empty state for existing snacks; assert "Start a new theme" still navigates to `/`. (FR-001..FR-006, FR-018, SC-001..SC-003, SC-009)
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] In `frontend/src/app/pages/results/results.component.ts`, add `backToSnacks(): void` that resolves the subtopic id from `appState.selectedSubtopic()?.id` (falling back to `appState.quizSubTopicId()`), sets `appState.currentSnackIndex` to the matching `snacks[].subtopicId` index when found (else leaves it unchanged), and calls `router.navigate(['/snacks'])` — **no `appState.reset()`, no HTTP call**. (FR-002, FR-003, FR-018, plan.md AD-1)
-- [ ] T008 [US1] In `frontend/src/app/pages/results/results.component.html`, add `<button class="ghost-btn" data-testid="back-to-snacks" (click)="backToSnacks()">Back to snacks</button>` inside the existing `.results-footer`, next to the restart `.primary-btn`; keep the restart button's `class="primary-btn"` and `restart()` binding unchanged. (FR-001, FR-006, FR-023)
-- [ ] T009 [P] [US1] In `frontend/src/app/pages/results/results.component.scss`, change `.results-footer` to a centered flex row with a gap so both actions sit side by side in both completion states. (FR-001, SC-001)
-- [ ] T010 [P] [US1] In `frontend/src/app/pages/snacks/snacks.component.ts`, fix the `init()` return path: when `appState.snacks().length > 0`, map each `Snack` to a READY `BatchItem` (preserving `subtopicId`/`subtopicName`/`snack`), set `items.set(...)`, set `creating=false` and `polling=false`, **then** clamp/write back the stored index, and return **without** calling `createBatch` or starting a poll. (FR-002, FR-004, FR-012, FR-018, plan.md AD-2 — discovered gap)
+- [X] T007 [US1] In `frontend/src/app/pages/results/results.component.ts`, add `backToSnacks(): void` that resolves the subtopic id from `appState.selectedSubtopic()?.id` (falling back to `appState.quizSubTopicId()`), sets `appState.currentSnackIndex` to the matching `snacks[].subtopicId` index when found (else leaves it unchanged), and calls `router.navigate(['/snacks'])` — **no `appState.reset()`, no HTTP call**. (FR-002, FR-003, FR-018, plan.md AD-1)
+- [X] T008 [US1] In `frontend/src/app/pages/results/results.component.html`, add `<button class="ghost-btn" data-testid="back-to-snacks" (click)="backToSnacks()">Back to snacks</button>` inside the existing `.results-footer`, next to the restart `.primary-btn`; keep the restart button's `class="primary-btn"` and `restart()` binding unchanged. (FR-001, FR-006, FR-023)
+- [X] T009 [P] [US1] In `frontend/src/app/pages/results/results.component.scss`, change `.results-footer` to a centered flex row with a gap so both actions sit side by side in both completion states. (FR-001, SC-001)
+- [X] T010 [P] [US1] In `frontend/src/app/pages/snacks/snacks.component.ts`, fix the `init()` return path: when `appState.snacks().length > 0`, map each `Snack` to a READY `BatchItem` (preserving `subtopicId`/`subtopicName`/`snack`), set `items.set(...)`, set `creating=false` and `polling=false`, **then** clamp/write back the stored index, and return **without** calling `createBatch` or starting a poll. (FR-002, FR-004, FR-012, FR-018, plan.md AD-2 — discovered gap)
 
 **Checkpoint**: US1 fully functional and independently testable — the learning loop closes with no new generation.
 
@@ -127,13 +127,13 @@ no label and are mapped by the Requirement Coverage table at the end.
 
 ### Tests for User Story 2 (write first, expect FAIL) ⚠️
 
-- [ ] T011 [US2] Create `frontend/e2e/snacks-navigation.spec.ts` (NEW) with the index coverage: with a 3-snack COMPLETE batch assert `.snack-index__item` count is 3 and each label equals the `subtopicName`; assert exactly one `.snack-index__item--active[aria-current="true"]`; click a READY entry and assert the `.snack-card__chip` and highlight update together; with one GENERATING and one FAILED item assert those entries are `disabled` and clicking them changes nothing. (FR-007..FR-010, SC-004)
+- [X] T011 [US2] Create `frontend/e2e/snacks-navigation.spec.ts` (NEW) with the index coverage: with a 3-snack COMPLETE batch assert `.snack-index__item` count is 3 and each label equals the `subtopicName`; assert exactly one `.snack-index__item--active[aria-current="true"]`; click a READY entry and assert the `.snack-card__chip` and highlight update together; with one GENERATING and one FAILED item assert those entries are `disabled` and clicking them changes nothing. (FR-007..FR-010, SC-004)
 
 ### Implementation for User Story 2
 
-- [ ] T012 [US2] In `frontend/src/app/pages/snacks/snacks.component.ts`, add `selectIndex(i: number): void` that sets `appState.currentSnackIndex` only when `items()[i]?.snackStatus === 'READY'` (guard even though the button is disabled), and add any index-supporting computeds. (FR-009, FR-010, FR-019)
-- [ ] T013 [US2] In `frontend/src/app/pages/snacks/snacks.component.html`, wrap the existing card area in a two-column layout and add `<nav class="snack-index" aria-label="Snack list">` with an `<ol>` and `@for (item of items(); track item.subtopicId; let i = $index)` rendering a `<button type="button" class="snack-index__item">` per snack: text `item.subtopicName`, `[class.snack-index__item--active]="i === currentIndex()"`, `[attr.aria-current]="i === currentIndex() ? 'true' : null"`, `[disabled]="item.snackStatus !== 'READY'"`, `(click)="selectIndex(i)"`. (FR-007..FR-010, FR-020, plan.md AD-4)
-- [ ] T014 [P] [US2] In `frontend/src/app/pages/snacks/snacks.component.scss`, add the two-column `.snacks-layout`, the `.snack-index` panel (sticky/scrollable list), and the `.snack-index__item` base/active/disabled entry styles. (FR-007, FR-008, FR-020)
+- [X] T012 [US2] In `frontend/src/app/pages/snacks/snacks.component.ts`, add `selectIndex(i: number): void` that sets `appState.currentSnackIndex` only when `items()[i]?.snackStatus === 'READY'` (guard even though the button is disabled), and add any index-supporting computeds. (FR-009, FR-010, FR-019)
+- [X] T013 [US2] In `frontend/src/app/pages/snacks/snacks.component.html`, wrap the existing card area in a two-column layout and add `<nav class="snack-index" aria-label="Snack list">` with an `<ol>` and `@for (item of items(); track item.subtopicId; let i = $index)` rendering a `<button type="button" class="snack-index__item">` per snack: text `item.subtopicName`, `[class.snack-index__item--active]="i === currentIndex()"`, `[attr.aria-current]="i === currentIndex() ? 'true' : null"`, `[disabled]="item.snackStatus !== 'READY'"`, `(click)="selectIndex(i)"`. (FR-007..FR-010, FR-020, plan.md AD-4)
+- [X] T014 [P] [US2] In `frontend/src/app/pages/snacks/snacks.component.scss`, add the two-column `.snacks-layout`, the `.snack-index` panel (sticky/scrollable list), and the `.snack-index__item` base/active/disabled entry styles. (FR-007, FR-008, FR-020)
 
 **Checkpoint**: The set is browsable; the index and card share the single clamped index source.
 
@@ -147,14 +147,14 @@ no label and are mapped by the Requirement Coverage table at the end.
 
 ### Tests for User Story 3 (write first, expect FAIL) ⚠️
 
-- [ ] T015 [US3] Extend `frontend/e2e/snacks-navigation.spec.ts`: Next/Previous move the active index by exactly one and update the card; Previous is disabled at index 0; Next is disabled at the last index; repeated Next reaches every READY snack with no blank card; the active index survives a `/snacks → /quiz → /results → /snacks` round trip and a plain navigate-away-and-back; clicking "Start Quiz" on a non-first active snack uses that snack's `subtopicId`; assert Next still cannot advance onto a GENERATING/FAILED item (progressive delivery preserved). (FR-011..FR-018, SC-005, SC-006)
+- [X] T015 [US3] Extend `frontend/e2e/snacks-navigation.spec.ts`: Next/Previous move the active index by exactly one and update the card; Previous is disabled at index 0; Next is disabled at the last index; repeated Next reaches every READY snack with no blank card; the active index survives a `/snacks → /quiz → /results → /snacks` round trip and a plain navigate-away-and-back; clicking "Start Quiz" on a non-first active snack uses that snack's `subtopicId`; assert Next still cannot advance onto a GENERATING/FAILED item (progressive delivery preserved). (FR-011..FR-018, SC-005, SC-006)
 
 ### Implementation for User Story 3
 
-- [ ] T016 [US3] In `frontend/src/app/pages/snacks/snacks.component.ts`, add `hasPrev` (`currentIndex() > 0`), `hasNext` (`currentIndex() < items().length - 1`), `canNext` (`hasNext() && nextSnack()?.snackStatus === 'READY'`), a private `goTo(index)` that rejects out-of-range targets and writes `appState.currentSnackIndex`, plus `prev()` (only when `hasPrev()`, no READY requirement) and `next()` (only when `canNext()`); replace the old local-index `next()`. (FR-011, FR-012, FR-015, FR-016, FR-019, plan.md AD-3)
-- [ ] T017 [US3] In `frontend/src/app/pages/snacks/snacks.component.ts`, make `startQuiz` derive the subtopic from the active snack (`currentSnack()?.snack?.subtopicId`) rather than a passed/stale id, set `selectedSubtopic`, and navigate to `/quiz`. (FR-017, plan.md AD-3)
-- [ ] T018 [US3] In `frontend/src/app/pages/snacks/snacks.component.html`, add the Previous (`class="ghost-btn nav-btn--prev"`, `[disabled]="!hasPrev()"`, `(click)="prev()"`) and Next (`class="primary-btn nav-btn--next"`, `[disabled]="!canNext()"`, `(click)="next()"`) controls inside `.snack-card__footer`; preserve the existing cooking-label / "All snacks served" affordances and keep only Next carrying `primary-btn`. (FR-011, FR-012, FR-016, FR-023)
-- [ ] T019 [US3] In `frontend/src/app/pages/snacks/snacks.component.ts`, clamp/write back `appState.currentSnackIndex` after hydration and whenever `items()` changes (e.g. in `applyStatus`/`mergeItem`) so a stale or out-of-range stored index never renders a blank card. (FR-012, SC-005, data-model.md §5)
+- [X] T016 [US3] In `frontend/src/app/pages/snacks/snacks.component.ts`, add `hasPrev` (`currentIndex() > 0`), `hasNext` (`currentIndex() < items().length - 1`), `canNext` (`hasNext() && nextSnack()?.snackStatus === 'READY'`), a private `goTo(index)` that rejects out-of-range targets and writes `appState.currentSnackIndex`, plus `prev()` (only when `hasPrev()`, no READY requirement) and `next()` (only when `canNext()`); replace the old local-index `next()`. (FR-011, FR-012, FR-015, FR-016, FR-019, plan.md AD-3)
+- [X] T017 [US3] In `frontend/src/app/pages/snacks/snacks.component.ts`, make `startQuiz` derive the subtopic from the active snack (`currentSnack()?.snack?.subtopicId`) rather than a passed/stale id, set `selectedSubtopic`, and navigate to `/quiz`. (FR-017, plan.md AD-3)
+- [X] T018 [US3] In `frontend/src/app/pages/snacks/snacks.component.html`, add the Previous (`class="ghost-btn nav-btn--prev"`, `[disabled]="!hasPrev()"`, `(click)="prev()"`) and Next (`class="primary-btn nav-btn--next"`, `[disabled]="!canNext()"`, `(click)="next()"`) controls inside `.snack-card__footer`; preserve the existing cooking-label / "All snacks served" affordances and keep only Next carrying `primary-btn`. (FR-011, FR-012, FR-016, FR-023)
+- [X] T019 [US3] In `frontend/src/app/pages/snacks/snacks.component.ts`, clamp/write back `appState.currentSnackIndex` after hydration and whenever `items()` changes (e.g. in `applyStatus`/`mergeItem`) so a stale or out-of-range stored index never renders a blank card. (FR-012, SC-005, data-model.md §5)
 
 **Checkpoint**: Navigation is complete and the active snack survives the round trip; progressive delivery is preserved.
 
@@ -168,13 +168,13 @@ no label and are mapped by the Requirement Coverage table at the end.
 
 ### Tests for User Story 4 (write first, expect FAIL) ⚠️
 
-- [ ] T020 [US4] Extend `frontend/e2e/snacks-navigation.spec.ts` with the accessibility/consistency coverage: tab to an index entry and a nav button and assert a visible `:focus-visible` outline and Enter/Space activation; after a mixed sequence of Next/Previous/index clicks assert the `.snack-card__chip` text, the single `aria-current="true"` entry, and the Next/Previous `disabled` states are mutually consistent. (FR-019, FR-020, SC-007, SC-008)
+- [X] T020 [US4] Extend `frontend/e2e/snacks-navigation.spec.ts` with the accessibility/consistency coverage: tab to an index entry and a nav button and assert a visible `:focus-visible` outline and Enter/Space activation; after a mixed sequence of Next/Previous/index clicks assert the `.snack-card__chip` text, the single `aria-current="true"` entry, and the Next/Previous `disabled` states are mutually consistent. (FR-019, FR-020, SC-007, SC-008)
 
 ### Implementation for User Story 4
 
-- [ ] T021 [P] [US4] In `frontend/src/app/pages/snacks/snacks.component.scss`, add explicit `:focus-visible` rules for `.snack-index__item` and the nav buttons, plus disabled styling that clearly distinguishes non-selectable entries. (FR-020, SC-008)
-- [ ] T022 [US4] In `frontend/src/app/pages/snacks/snacks.component.html`, verify every new control is a `<button type="button">` with a text accessible name; ensure `aria-current="true"` is present only on the active entry and non-READY entries use the native `disabled` attribute. (FR-019, FR-020)
-- [ ] T023 [US4] In `frontend/src/app/pages/results/results.component.html`/`.scss`, ensure the new "Back to snacks" control is `<button type="button">` with a text accessible name and a visible `:focus-visible` indicator (inherited or explicit), without adding any `primary-btn`/`link-btn` class. (FR-020, FR-023)
+- [X] T021 [P] [US4] In `frontend/src/app/pages/snacks/snacks.component.scss`, add explicit `:focus-visible` rules for `.snack-index__item` and the nav buttons, plus disabled styling that clearly distinguishes non-selectable entries. (FR-020, SC-008)
+- [X] T022 [US4] In `frontend/src/app/pages/snacks/snacks.component.html`, verify every new control is a `<button type="button">` with a text accessible name; ensure `aria-current="true"` is present only on the active entry and non-READY entries use the native `disabled` attribute. (FR-019, FR-020)
+- [X] T023 [US4] In `frontend/src/app/pages/results/results.component.html`/`.scss`, ensure the new "Back to snacks" control is `<button type="button">` with a text accessible name and a visible `:focus-visible` indicator (inherited or explicit), without adding any `primary-btn`/`link-btn` class. (FR-020, FR-023)
 
 **Checkpoint**: All four stories are independently functional and accessible.
 
@@ -184,12 +184,12 @@ no label and are mapped by the Requirement Coverage table at the end.
 
 **Purpose**: Reconcile contracts/docs, run the new specs and the named regression suite, and confirm the frozen backend and selector surfaces.
 
-- [ ] T024 [P] Verify/update `specs/010-snacks-navigation/contracts/ui-navigation.md` so the component API, DOM/ARIA selectors, and state invariants match the shipped implementation (including `data-testid="back-to-snacks"`, `.snack-index__item`, `.snack-card .ghost-btn`). (FR-001, FR-006..FR-010, FR-020, FR-023)
-- [ ] T025 [P] Verify/update `specs/010-snacks-navigation/contracts/backend-unchanged.md`, `data-model.md`, and `quickstart.md` against the shipped behavior; confirm no HTTP/DTO/schema change and that the manual steps still reproduce the feature. (FR-022, SC-010)
-- [ ] T026 Run the two new specs and confirm green: `cd frontend && npx playwright test e2e/results-back-to-snacks.spec.ts e2e/snacks-navigation.spec.ts`. Depends on T006, T011, T015, T020 and their implementation targets. (FR-001..FR-020, SC-001..SC-008)
-- [ ] T027 Run the named regression suite and confirm green **unchanged**: `cd frontend && npx playwright test e2e/restart-clears-state.spec.ts e2e/progressive-delivery.spec.ts e2e/back-navigation.spec.ts e2e/loading-states.spec.ts`. (FR-005, FR-006, FR-016, FR-021, FR-023, SC-009)
-- [ ] T028 [P] Type-check/build: run `cd frontend && npm run build` and confirm the template/method changes compile with no errors. (SC-009)
-- [ ] T029 [P] Confirm the backend is frozen: `git status` shows no `backend/` change; optionally run `cd backend && mvn -q -DskipTests package`. Record the result. (FR-022, SC-010)
+- [X] T024 [P] Verify/update `specs/010-snacks-navigation/contracts/ui-navigation.md` so the component API, DOM/ARIA selectors, and state invariants match the shipped implementation (including `data-testid="back-to-snacks"`, `.snack-index__item`, `.snack-card .ghost-btn`). (FR-001, FR-006..FR-010, FR-020, FR-023)
+- [X] T025 [P] Verify/update `specs/010-snacks-navigation/contracts/backend-unchanged.md`, `data-model.md`, and `quickstart.md` against the shipped behavior; confirm no HTTP/DTO/schema change and that the manual steps still reproduce the feature. (FR-022, SC-010)
+- [X] T026 Run the two new specs and confirm green: `cd frontend && npx playwright test e2e/results-back-to-snacks.spec.ts e2e/snacks-navigation.spec.ts`. Depends on T006, T011, T015, T020 and their implementation targets. (FR-001..FR-020, SC-001..SC-008)
+- [X] T027 Run the named regression suite and confirm green **unchanged**: `cd frontend && npx playwright test e2e/restart-clears-state.spec.ts e2e/progressive-delivery.spec.ts e2e/back-navigation.spec.ts e2e/loading-states.spec.ts`. (FR-005, FR-006, FR-016, FR-021, FR-023, SC-009)
+- [X] T028 [P] Type-check/build: run `cd frontend && npm run build` and confirm the template/method changes compile with no errors. (SC-009)
+- [X] T029 [P] Confirm the backend is frozen: `git status` shows no `backend/` change; optionally run `cd backend && mvn -q -DskipTests package`. Record the result. (FR-022, SC-010)
 
 **Checkpoint**: New behavior verified; regression contract and backend freeze confirmed.
 
@@ -199,11 +199,11 @@ no label and are mapped by the Requirement Coverage table at the end.
 
 **Purpose**: Final audits, full-suite run, manual verification, and checklist sign-off.
 
-- [ ] T030 [P] Selector-collision audit: run the app and assert `.results-footer .primary-btn`, `.snack-card .primary-btn`, and `button.link-btn` (snacks page) each match exactly one element in strict mode; confirm index entries never carry `link-btn` and "Back to snacks"/"Previous" never carry `primary-btn`. (FR-006, FR-023)
-- [ ] T031 [P] No-extra-request audit: confirm the return path and all navigation interactions issue **zero** HTTP requests (no `POST /api/batches`, no `/api/snacks/generate`); the return flow reuses in-memory `AppStateService.snacks`. (FR-002, SC-002)
-- [ ] T032 Run the full Playwright suite: `cd frontend && npx playwright test` and confirm all specs (including the wider set: `polling-termination`, `retry-bound`, `manual-retry`, `snack-wait-messages`, `bounded-snack-settle`, `happy-path`, `perfect-score`, `batch-empty-state`) are green. (FR-021, SC-009)
-- [ ] T033 Execute the `quickstart.md` manual verification: US1 (both completion states, return with no new batch, quizzed snack active), US2 (index lists all, one highlight, click-to-jump, disabled non-READY), US3 (Next/Previous ±1, boundaries, persistence across the round trip, Start Quiz uses the active subtopic), US4 (keyboard/focus/consistency). Record results. (SC-001..SC-008)
-- [ ] T034 Final validation: mark every completed task `[x]` in this file, confirm **all** checklists under `specs/010-snacks-navigation/checklists/` have **0 unchecked items**, and record the final task/phase counts in the Summary section. (SC-009)
+- [X] T030 [P] Selector-collision audit: run the app and assert `.results-footer .primary-btn`, `.snack-card .primary-btn`, and `button.link-btn` (snacks page) each match exactly one element in strict mode; confirm index entries never carry `link-btn` and "Back to snacks"/"Previous" never carry `primary-btn`. (FR-006, FR-023)
+- [X] T031 [P] No-extra-request audit: confirm the return path and all navigation interactions issue **zero** HTTP requests (no `POST /api/batches`, no `/api/snacks/generate`); the return flow reuses in-memory `AppStateService.snacks`. (FR-002, SC-002)
+- [X] T032 Run the full Playwright suite: `cd frontend && npx playwright test` and confirm all specs (including the wider set: `polling-termination`, `retry-bound`, `manual-retry`, `snack-wait-messages`, `bounded-snack-settle`, `happy-path`, `perfect-score`, `batch-empty-state`) are green. (FR-021, SC-009)
+- [X] T033 Execute the `quickstart.md` manual verification: US1 (both completion states, return with no new batch, quizzed snack active), US2 (index lists all, one highlight, click-to-jump, disabled non-READY), US3 (Next/Previous ±1, boundaries, persistence across the round trip, Start Quiz uses the active subtopic), US4 (keyboard/focus/consistency). Record results. (SC-001..SC-008)
+- [X] T034 Final validation: mark every completed task `[x]` in this file, confirm **all** checklists under `specs/010-snacks-navigation/checklists/` have **0 unchecked items**, and record the final task/phase counts in the Summary section. (SC-009)
 
 **Checkpoint**: Feature complete, verified, and signed off.
 
@@ -333,16 +333,18 @@ Once Foundational completes: Developer A takes US1 (results + hydration), Develo
 
 ## Summary
 
-- **Total tasks: 34**
-- **Phase breakdown**:
-  - Setup: **3** (T001–T003)
-  - Foundational: **2** (T004–T005)
-  - User Story 1 (return to snacks): **5** (T006–T010)
-  - User Story 2 (left index): **4** (T011–T014)
-  - User Story 3 (Next/Previous + persistence): **5** (T015–T019)
-  - User Story 4 (accessibility/consistency): **4** (T020–T023)
-  - Integration: **6** (T024–T029)
-  - Polish: **5** (T030–T034)
+- **Total tasks: 34** — **all 34 complete** (`[X]`), 0 remaining.
+- **Phase breakdown** (completed/total):
+  - Setup: **3/3** (T001–T003)
+  - Foundational: **2/2** (T004–T005)
+  - User Story 1 (return to snacks): **5/5** (T006–T010)
+  - User Story 2 (left index): **4/4** (T011–T014)
+  - User Story 3 (Next/Previous + persistence): **5/5** (T015–T019)
+  - User Story 4 (accessibility/consistency): **4/4** (T020–T023)
+  - Integration: **6/6** (T024–T029)
+  - Polish: **5/5** (T030–T034)
+- **Verification**: `npm run build` green; full Playwright suite **61 passed** (48 pre-existing + 13 new); named regression suite green unchanged; backend untouched (`git status` shows no `backend/` change; no package/schema delta).
+- **Checklists**: `requirements.md`, `implementation.md`, `test.md`, `ux.md` all have **0 unchecked items**.
 - **Story task counts** (labeled tasks): US1 = 5, US2 = 4, US3 = 5, US4 = 4; unlabeled setup/foundational/integration/polish = 16.
 - **Parallel opportunities**: 12 tasks marked `[P]` across Setup/Foundational/User Stories/Integration/Polish.
 - **New files**: `frontend/e2e/results-back-to-snacks.spec.ts`, `frontend/e2e/snacks-navigation.spec.ts`.

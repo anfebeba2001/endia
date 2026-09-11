@@ -46,6 +46,21 @@ export class AppStateService {
     this.currentSnackIndex.set(0);
   }
 
+  /** Write the active snack position (single source of truth, FR-013). */
+  setSnackIndex(index: number): void {
+    this.currentSnackIndex.set(index);
+  }
+
+  /**
+   * Index in `snacks()` whose `subtopicId` matches, or -1 when absent (FR-003/FR-018).
+   */
+  snackIndexForSubtopic(subtopicId: string | null): number {
+    if (!subtopicId) {
+      return -1;
+    }
+    return this.snacks().findIndex((s) => s.subtopicId === subtopicId);
+  }
+
   /** Record a prefetched quiz for a subtopic, marking the quiz as prefetched (FR-003). */
   setQuizPrefetch(subtopicId: string, questions: QuizQuestion[]): void {
     this.quizPrefetchBySubtopic.set({ ...this.quizPrefetchBySubtopic(), [subtopicId]: questions });

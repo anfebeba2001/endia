@@ -8,54 +8,54 @@
 
 ## Return-Flow Coverage (US1)
 
-- [ ] CHK001 Is there a test requirement that BOTH completion states ("Quiz complete" and "Perfect score!") render "Back to snacks"? [Coverage, Spec §SC-001, tasks.md T006]
-- [ ] CHK002 Is there a test requirement asserting 0 additional `POST /api/batches` after clicking "Back to snacks"? [Coverage, Spec §SC-002/§FR-002, tasks.md T006, T031]
-- [ ] CHK003 Is there a test requirement that the quizzed subtopic's snack is active on return (matching `subtopicId`)? [Coverage, Spec §SC-003/§FR-003, tasks.md T006]
-- [ ] CHK004 Is there a test requirement that existing snacks render with no loading/empty/creation state? [Coverage, Spec §FR-004, tasks.md T006]
-- [ ] CHK005 Is there a test requirement that "Start a new theme" still resets state and lands on `/`? [Coverage, Spec §FR-005, tasks.md T006, T027]
+- [X] CHK001 Is there a test requirement that BOTH completion states ("Quiz complete" and "Perfect score!") render "Back to snacks"? [Coverage, Spec §SC-001, tasks.md T006]
+- [X] CHK002 Is there a test requirement asserting 0 additional `POST /api/batches` after clicking "Back to snacks"? [Coverage, Spec §SC-002/§FR-002, tasks.md T006, T031]
+- [X] CHK003 Is there a test requirement that the quizzed subtopic's snack is active on return (matching `subtopicId`)? [Coverage, Spec §SC-003/§FR-003, tasks.md T006]
+- [X] CHK004 Is there a test requirement that existing snacks render with no loading/empty/creation state? [Coverage, Spec §FR-004, tasks.md T006]
+- [X] CHK005 Is there a test requirement that "Start a new theme" still resets state and lands on `/`? [Coverage, Spec §FR-005, tasks.md T006, T027]
 
 ## Index Coverage (US2)
 
-- [ ] CHK006 Is there a test requirement that the index lists an entry for every snack labelled by `subtopicName`? [Coverage, Spec §FR-007/§SC-004, tasks.md T011]
-- [ ] CHK007 Is there a test requirement that exactly one entry is active (`aria-current="true"` + active class)? [Coverage, Spec §FR-008/§SC-004, tasks.md T011]
-- [ ] CHK008 Is there a test requirement that clicking a READY entry updates the card and highlight together? [Coverage, Spec §FR-009, tasks.md T011]
-- [ ] CHK009 Is there a test requirement that non-READY (GENERATING/FAILED) entries are disabled and inert? [Coverage, Spec §FR-010, tasks.md T011]
+- [X] CHK006 Is there a test requirement that the index lists an entry for every snack labelled by `subtopicName`? [Coverage, Spec §FR-007/§SC-004, tasks.md T011]
+- [X] CHK007 Is there a test requirement that exactly one entry is active (`aria-current="true"` + active class)? [Coverage, Spec §FR-008/§SC-004, tasks.md T011]
+- [X] CHK008 Is there a test requirement that clicking a READY entry updates the card and highlight together? [Coverage, Spec §FR-009, tasks.md T011]
+- [X] CHK009 Is there a test requirement that non-READY (GENERATING/FAILED) entries are disabled and inert? [Coverage, Spec §FR-010, tasks.md T011]
 
 ## Navigation & Persistence Coverage (US3)
 
-- [ ] CHK010 Is there a test requirement that Next/Previous move the index by exactly one? [Coverage, Spec §FR-011/§SC-005, tasks.md T015]
-- [ ] CHK011 Is there a test requirement for boundary disabled states with no out-of-range/blank card? [Coverage, Spec §FR-012/§SC-005, tasks.md T015]
-- [ ] CHK012 Is there a test requirement that the active index survives the quiz→results→return round trip? [Coverage, Spec §FR-014/§SC-006, tasks.md T015]
-- [ ] CHK013 Is there a test requirement that Previous can return to a previously-READY snack and is disabled only at index 0? [Coverage, Spec §FR-015, tasks.md T015]
-- [ ] CHK014 Is there a test requirement that Next still advances only to a READY snack (progressive delivery preserved)? [Coverage, Spec §FR-016/§SC-009, tasks.md T015, T027]
-- [ ] CHK015 Is there a test requirement that "Start Quiz" uses the active snack's `subtopicId`? [Coverage, Spec §FR-017, tasks.md T015]
-- [ ] CHK016 Is there a test requirement for the no-READY-match fallback (keep current index)? [Coverage, Spec §FR-018, tasks.md T006]
+- [X] CHK010 Is there a test requirement that Next/Previous move the index by exactly one? [Coverage, Spec §FR-011/§SC-005, tasks.md T015]
+- [X] CHK011 Is there a test requirement for boundary disabled states with no out-of-range/blank card? [Coverage, Spec §FR-012/§SC-005, tasks.md T015]
+- [X] CHK012 Is there a test requirement that the active index survives the quiz→results→return round trip? [Coverage, Spec §FR-014/§SC-006, tasks.md T015]
+- [X] CHK013 Is there a test requirement that Previous can return to a previously-READY snack and is disabled only at index 0? [Coverage, Spec §FR-015, tasks.md T015]
+- [X] CHK014 Is there a test requirement that Next still advances only to a READY snack (progressive delivery preserved)? [Coverage, Spec §FR-016/§SC-009, tasks.md T015, T027]
+- [X] CHK015 Is there a test requirement that "Start Quiz" uses the active snack's `subtopicId`? [Coverage, Spec §FR-017, tasks.md T015]
+- [X] CHK016 Is there a test requirement for the no-READY-match fallback (keep current index)? [Coverage, Spec §FR-018, tasks.md T006]
 
 ## Consistency & Accessibility Coverage (US4)
 
-- [ ] CHK017 Is there a test requirement that after mixed interactions the card, highlight, and enabled states agree? [Coverage, Spec §FR-019/§SC-007, tasks.md T020]
-- [ ] CHK018 Is there a test requirement for keyboard reachability/activation and a visible `:focus-visible` indicator? [Coverage, Spec §FR-020/§SC-008, tasks.md T020]
+- [X] CHK017 Is there a test requirement that after mixed interactions the card, highlight, and enabled states agree? [Coverage, Spec §FR-019/§SC-007, tasks.md T020]
+- [X] CHK018 Is there a test requirement for keyboard reachability/activation and a visible `:focus-visible` indicator? [Coverage, Spec §FR-020/§SC-008, tasks.md T020]
 
 ## Test Clarity & Feasibility
 
-- [ ] CHK019 Is the absence of a frontend unit-test runner documented, with Playwright named as the verification path? [Clarity, plan.md §Testing, tasks.md preamble]
-- [ ] CHK020 Are the two new spec files named exactly and their coverage mapped to stories? [Clarity, quickstart.md §Automated tests, tasks.md T006, T011]
-- [ ] CHK021 Is the use of `setupQuizSummaryMock({ correctAnswers: 4 })` to drive the "Perfect score!" state stated? [Clarity, plan.md §Testing Strategy, tasks.md T006]
-- [ ] CHK022 Is the use of the configurable batch mock to count `POST /api/batches` stated? [Clarity, helpers.ts, tasks.md T006]
-- [ ] CHK023 Are the exact test and build commands recorded? [Clarity, quickstart.md §Automated tests]
+- [X] CHK019 Is the absence of a frontend unit-test runner documented, with Playwright named as the verification path? [Clarity, plan.md §Testing, tasks.md preamble]
+- [X] CHK020 Are the two new spec files named exactly and their coverage mapped to stories? [Clarity, quickstart.md §Automated tests, tasks.md T006, T011]
+- [X] CHK021 Is the use of `setupQuizSummaryMock({ correctAnswers: 4 })` to drive the "Perfect score!" state stated? [Clarity, plan.md §Testing Strategy, tasks.md T006]
+- [X] CHK022 Is the use of the configurable batch mock to count `POST /api/batches` stated? [Clarity, helpers.ts, tasks.md T006]
+- [X] CHK023 Are the exact test and build commands recorded? [Clarity, quickstart.md §Automated tests]
 
 ## Regression, Boundaries & Gaps
 
-- [ ] CHK024 Are the named regression suites (`restart-clears-state`, `progressive-delivery`, `back-navigation`, `loading-states`) required to pass unchanged? [Consistency, Spec §FR-021/§SC-009, tasks.md T027]
-- [ ] CHK025 Is a full-suite Playwright run required? [Coverage, Spec §SC-009, tasks.md T032]
-- [ ] CHK026 Is the strict-mode selector baseline (`.results-footer .primary-btn`, `.snack-card .primary-btn`, `button.link-btn`) verified? [Consistency, Spec §FR-023, tasks.md T003, T030]
-- [ ] CHK027 Is `npm run build` required to type-check the template/method changes? [Coverage, Spec §SC-009, tasks.md T028]
-- [ ] CHK028 Is it stated that no backend tests are added or changed (backend frozen)? [Clarity, Spec §FR-022, tasks.md T029]
-- [ ] CHK029 Is the single-snack boundary (both controls disabled, one entry) covered by requirements? [Gap, Spec §Edge Cases]
-- [ ] CHK030 Are the all-generating and all-failed set cases covered? [Gap, Spec §Edge Cases]
-- [ ] CHK031 Is the stale/out-of-range stored index case covered? [Gap, Spec §Edge Cases, tasks.md T019]
-- [ ] CHK032 Is the missing-`selectedSubtopic` and deep-link-no-snacks case covered? [Gap, Spec §Edge Cases]
-- [ ] CHK033 Does the manual quickstart verification cover US1–US4? [Coverage, quickstart.md, tasks.md T033]
+- [X] CHK024 Are the named regression suites (`restart-clears-state`, `progressive-delivery`, `back-navigation`, `loading-states`) required to pass unchanged? [Consistency, Spec §FR-021/§SC-009, tasks.md T027]
+- [X] CHK025 Is a full-suite Playwright run required? [Coverage, Spec §SC-009, tasks.md T032]
+- [X] CHK026 Is the strict-mode selector baseline (`.results-footer .primary-btn`, `.snack-card .primary-btn`, `button.link-btn`) verified? [Consistency, Spec §FR-023, tasks.md T003, T030]
+- [X] CHK027 Is `npm run build` required to type-check the template/method changes? [Coverage, Spec §SC-009, tasks.md T028]
+- [X] CHK028 Is it stated that no backend tests are added or changed (backend frozen)? [Clarity, Spec §FR-022, tasks.md T029]
+- [X] CHK029 Is the single-snack boundary (both controls disabled, one entry) covered by requirements? [Gap, Spec §Edge Cases]
+- [X] CHK030 Are the all-generating and all-failed set cases covered? [Gap, Spec §Edge Cases]
+- [X] CHK031 Is the stale/out-of-range stored index case covered? [Gap, Spec §Edge Cases, tasks.md T019]
+- [X] CHK032 Is the missing-`selectedSubtopic` and deep-link-no-snacks case covered? [Gap, Spec §Edge Cases]
+- [X] CHK033 Does the manual quickstart verification cover US1–US4? [Coverage, quickstart.md, tasks.md T033]
 
 ## Notes
 

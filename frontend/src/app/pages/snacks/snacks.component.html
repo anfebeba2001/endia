@@ -44,77 +44,110 @@
     </div>
   }
 
-  @if (!creating() && currentSnack(); as item) {
-    @if (item.snackStatus === 'READY' && item.snack; as snack) {
-      <article class="snack-card">
-        <div class="snack-card__top">
-          <span class="snack-card__chip">{{ snack.subtopicName }}</span>
-          <button
-            class="quiz-btn"
-            [disabled]="loadingSubtopic() !== null"
-            (click)="startQuiz(snack.subtopicId)"
-          >
-            {{ loadingSubtopic() === snack.subtopicId ? 'Loading…' : 'Start Quiz' }}
-          </button>
-        </div>
-
-        <h2 class="snack-card__concept-title">Concept</h2>
-        <p class="snack-card__concept">{{ snack.concept }}</p>
-
-        <h2 class="snack-card__concept-title">Metaphor</h2>
-        <p class="snack-card__metaphor">{{ snack.metaphor }}</p>
-
-        <h2 class="snack-card__concept-title">Why it matters</h2>
-        <p class="snack-card__why">{{ snack.whyItMatters }}</p>
-
-        @if (snack.related.length) {
-          <div class="snack-card__related">
-            <h3>Related</h3>
-            <div class="tags">
-              @for (rel of snack.related; track rel) {
-                <span class="tag">{{ rel }}</span>
-              }
-            </div>
-          </div>
-        }
-
-        <div class="snack-card__footer">
-          @if (nextSnack(); as nxt) {
-            @if (nxt.snackStatus === 'READY') {
-              <button class="primary-btn" (click)="next()">Next →</button>
-            } @else {
-              <span class="cooking-label">
-                <span class="spinner spinner--sm" aria-hidden="true"></span>
-                {{ nxt.snackStatus === 'FAILED' ? 'Next one failed' : 'Next snack is cooking…' }}
-              </span>
-            }
-          } @else {
-            <span class="cooking-label">All snacks served</span>
+  @if (!creating() && items().length > 0) {
+    <div class="snacks-layout">
+      <nav class="snack-index" aria-label="Snack list">
+        <ol class="snack-index__list">
+          @for (item of items(); track item.subtopicId; let i = $index) {
+            <li>
+              <button
+                type="button"
+                class="snack-index__item"
+                [class.snack-index__item--active]="i === currentIndex()"
+                [attr.aria-current]="i === currentIndex() ? 'true' : null"
+                [disabled]="item.snackStatus !== 'READY'"
+                (click)="selectIndex(i)"
+              >{{ item.subtopicName }}</button>
+            </li>
           }
-        </div>
-      </article>
-    } @else if (item.snackStatus === 'FAILED') {
-      <div class="error-banner" role="alert">
-        @if (terminalError(item.subtopicId); as terminalMsg) {
-          <strong>Couldn't prepare this snack after 3 attempts.</strong>
-          <span>{{ terminalMsg }} </span>
-        } @else {
-          <strong>Couldn't prepare this snack.</strong>
-          <span>Cause: {{ item.snackCause ?? 'Unknown' }}. </span>
+        </ol>
+      </nav>
+
+      <div class="snack-content">
+        @if (currentSnack(); as item) {
+          @if (item.snackStatus === 'READY' && item.snack; as snack) {
+            <article class="snack-card">
+              <div class="snack-card__top">
+                <span class="snack-card__chip">{{ snack.subtopicName }}</span>
+                <button
+                  class="quiz-btn"
+                  [disabled]="loadingSubtopic() !== null"
+                  (click)="startQuiz()"
+                >
+                  {{ loadingSubtopic() === snack.subtopicId ? 'Loading…' : 'Start Quiz' }}
+                </button>
+              </div>
+
+              <h2 class="snack-card__concept-title">Concept</h2>
+              <p class="snack-card__concept">{{ snack.concept }}</p>
+
+              <h2 class="snack-card__concept-title">Metaphor</h2>
+              <p class="snack-card__metaphor">{{ snack.metaphor }}</p>
+
+              <h2 class="snack-card__concept-title">Why it matters</h2>
+              <p class="snack-card__why">{{ snack.whyItMatters }}</p>
+
+              @if (snack.related.length) {
+                <div class="snack-card__related">
+                  <h3>Related</h3>
+                  <div class="tags">
+                    @for (rel of snack.related; track rel) {
+                      <span class="tag">{{ rel }}</span>
+                    }
+                  </div>
+                </div>
+              }
+
+              <div class="snack-card__footer">
+                <button
+                  type="button"
+                  class="ghost-btn nav-btn--prev"
+                  [disabled]="!hasPrev()"
+                  (click)="prev()"
+                >← Previous</button>
+                <button
+                  type="button"
+                  class="primary-btn nav-btn--next"
+                  [disabled]="!canNext()"
+                  (click)="next()"
+                >Next →</button>
+                @if (nextSnack(); as nxt) {
+                  @if (nxt.snackStatus !== 'READY') {
+                    <span class="cooking-label">
+                      <span class="spinner spinner--sm" aria-hidden="true"></span>
+                      {{ nxt.snackStatus === 'FAILED' ? 'Next one failed' : 'Next snack is cooking…' }}
+                    </span>
+                  }
+                } @else {
+                  <span class="cooking-label">All snacks served</span>
+                }
+              </div>
+            </article>
+          } @else if (item.snackStatus === 'FAILED') {
+            <div class="error-banner" role="alert">
+              @if (terminalError(item.subtopicId); as terminalMsg) {
+                <strong>Couldn't prepare this snack after 3 attempts.</strong>
+                <span>{{ terminalMsg }} </span>
+              } @else {
+                <strong>Couldn't prepare this snack.</strong>
+                <span>Cause: {{ item.snackCause ?? 'Unknown' }}. </span>
+              }
+              <button
+                class="link-btn"
+                [disabled]="isInFlight(item.subtopicId)"
+                (click)="retry(item.subtopicId)"
+              >
+                Retry
+              </button>
+            </div>
+          } @else {
+            <div class="loading state" aria-live="polite">
+              <div class="spinner" aria-hidden="true"></div>
+              <p>{{ phaseMessage(item.snackPhase) }}</p>
+            </div>
+          }
         }
-        <button
-          class="link-btn"
-          [disabled]="isInFlight(item.subtopicId)"
-          (click)="retry(item.subtopicId)"
-        >
-          Retry
-        </button>
       </div>
-    } @else {
-      <div class="loading state" aria-live="polite">
-        <div class="spinner" aria-hidden="true"></div>
-        <p>{{ phaseMessage(item.snackPhase) }}</p>
-      </div>
-    }
+    </div>
   }
 </section>
