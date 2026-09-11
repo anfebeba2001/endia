@@ -4,6 +4,7 @@ import com.endia.application.port.LlmProvider;
 import com.endia.application.service.BatchService;
 import com.endia.domain.enums.BatchStatus;
 import com.endia.domain.enums.GenerationStatus;
+import com.endia.domain.enums.SnackGenerationPhase;
 import com.endia.domain.model.Subtopic;
 import com.endia.domain.model.Theme;
 import com.endia.infrastructure.persistence.JpaSubtopicRepository;
@@ -23,6 +24,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -32,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -136,6 +139,60 @@ class BatchGenerationIntegrationTest {
         long deadline = System.currentTimeMillis() + Duration.ofSeconds(60).toMillis();
         awaitTerminalAndAssertReady(first, deadline);
         awaitTerminalAndAssertReady(second, deadline);
+    }
+
+    /**
+     * Feature 008: with a slow (latched) LLM, a poll observes a non-null {@code snackPhase}
+     * mid-generation, and the phase is cleared once the item is terminal (FR-003/FR-004).
+     */
+    @Test
+    void phaseIsVisibleMidGenerationAndClearedAtTerminal() throws Exception {
+        CountDownLatch entered = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        when(llmProvider.generateSnack(anyString(), anyString())).thenAnswer(inv -> {
+            entered.countDown();
+            release.await(30, TimeUnit.SECONDS);
+            return new LlmProvider.GeneratedSnack("Concept", "Metaphor", "Why it matters", List.of("Related"));
+        });
+        when(llmProvider.generateQuiz(anyString(), anyString(), anyInt(), any()))
+                .thenReturn(List.of(new LlmProvider.GeneratedQuestion(
+                        "Question?", LlmProvider.GeneratedQuestion.QuestionType.MULTIPLE_CHOICE,
+                        List.of("A", "B", "C"), 0, null, null, "Explanation")));
+
+        Theme theme = themeRepository.save(new Theme("Biology"));
+        Subtopic sub = subtopicRepository.save(new Subtopic(theme, "Mitosis"));
+        UUID batchId = batchService.createBatch(theme.getId(), List.of(sub.getId())).batchId();
+
+        assertTrue(entered.await(30, TimeUnit.SECONDS), "LLM call never started");
+
+        SnackGenerationPhase observed = null;
+        long deadline = System.currentTimeMillis() + Duration.ofSeconds(30).toMillis();
+        while (System.currentTimeMillis() < deadline && observed == null) {
+            for (BatchService.BatchItemStatus item : batchService.getStatus(batchId).items()) {
+                if (item.snackPhase() != null) {
+                    observed = item.snackPhase();
+                }
+            }
+            if (observed == null) {
+                Thread.sleep(100);
+            }
+        }
+        assertNotNull(observed, "no snackPhase was observable mid-generation");
+
+        release.countDown();
+
+        long terminalDeadline = System.currentTimeMillis() + Duration.ofSeconds(60).toMillis();
+        BatchStatus status = BatchStatus.IN_PROGRESS;
+        while (System.currentTimeMillis() < terminalDeadline && status == BatchStatus.IN_PROGRESS) {
+            status = batchService.getStatus(batchId).status();
+            if (status == BatchStatus.IN_PROGRESS) {
+                Thread.sleep(200);
+            }
+        }
+        assertNotEquals(BatchStatus.IN_PROGRESS, status, "batch did not reach a terminal status");
+        for (BatchService.BatchItemStatus item : batchService.getStatus(batchId).items()) {
+            assertNull(item.snackPhase(), "phase must be cleared once the item is terminal");
+        }
     }
 
     private void awaitTerminalAndAssertReady(UUID batchId, long deadline) throws InterruptedException {

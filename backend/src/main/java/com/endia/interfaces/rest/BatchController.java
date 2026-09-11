@@ -59,6 +59,7 @@ public class BatchController {
                         i.subtopicId(),
                         i.subtopicName(),
                         i.snackStatus(),
+                        i.snackPhase() == null ? null : i.snackPhase().name(),
                         toSnackDto(i.snack()),
                         i.snackCause(),
                         i.quizStatus(),

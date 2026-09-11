@@ -113,7 +113,7 @@
     } @else {
       <div class="loading state" aria-live="polite">
         <div class="spinner" aria-hidden="true"></div>
-        <p>Preparing your snack…</p>
+        <p>{{ phaseMessage(item.snackPhase) }}</p>
       </div>
     }
   }

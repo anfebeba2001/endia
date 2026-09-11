@@ -1,6 +1,8 @@
 package com.endia.application.service;
 
 import com.endia.application.port.LlmProvider;
+import com.endia.application.port.SnackPhaseListener;
+import com.endia.domain.enums.SnackGenerationPhase;
 import com.endia.domain.exception.EntityNotFoundException;
 import com.endia.domain.exception.LlmGenerationException;
 import com.endia.domain.exception.ServiceUnavailableException;
@@ -64,9 +66,18 @@ public class SnackService {
      */
     @Transactional
     public Snack generateSingleSnack(UUID subtopicId) {
+        return generateSingleSnack(subtopicId, SnackPhaseListener.NOOP);
+    }
+
+    /**
+     * Listener-aware overload used by the batch worker: resolves the subtopic inside the
+     * transaction and reports each real generation step to the listener (feature 008, FR-002).
+     */
+    @Transactional
+    public Snack generateSingleSnack(UUID subtopicId, SnackPhaseListener listener) {
         Subtopic subtopic = subtopicRepository.findById(subtopicId)
                 .orElseThrow(() -> new EntityNotFoundException("Subtopic", subtopicId));
-        return generateAndPersist(subtopic);
+        return generateAndPersist(subtopic, listener == null ? SnackPhaseListener.NOOP : listener);
     }
 
     /**
@@ -74,7 +85,7 @@ public class SnackService {
      */
     @Transactional
     public Snack generateSingleSnack(Subtopic subtopic) {
-        return generateAndPersist(subtopic);
+        return generateAndPersist(subtopic, SnackPhaseListener.NOOP);
     }
 
     /**
@@ -82,7 +93,7 @@ public class SnackService {
      */
     @Transactional
     public Snack generateSingleSnack(Subtopic subtopic, Consumer<Snack> onComplete) {
-        Snack snack = generateAndPersist(subtopic);
+        Snack snack = generateAndPersist(subtopic, SnackPhaseListener.NOOP);
         if (onComplete != null) {
             onComplete.accept(snack);
         }
@@ -91,28 +102,35 @@ public class SnackService {
 
     /**
      * Shared generation/persistence logic for every overload. Callers must hold an open
-     * persistence context so {@code subtopic.getTheme()} is resolvable.
+     * persistence context so {@code subtopic.getTheme()} is resolvable. Emits the phase at the
+     * exact real code points (feature 008, FR-001/FR-002).
      */
-    private Snack generateAndPersist(Subtopic subtopic) {
+    private Snack generateAndPersist(Subtopic subtopic, SnackPhaseListener listener) {
+        listener.onPhase(SnackGenerationPhase.RESOLVING_CONTEXT);
         String themePrompt = subtopic.getTheme().getPrompt();
-        Snack snack = generateValidSnack(themePrompt, subtopic.getName());
+        Snack snack = generateValidSnack(themePrompt, subtopic.getName(), listener);
         snack.setSubtopic(subtopic);
+        listener.onPhase(SnackGenerationPhase.PERSISTING);
         snackRepository.save(snack);
         return snack;
     }
 
     /**
      * Generates a snack and validates all fields are non-empty. Re-rolls once if a field is empty.
+     * Emits {@code AWAITING_MODEL} before each LLM call and {@code ASSEMBLING} once validation passes.
      */
-    private Snack generateValidSnack(String theme, String subtopicName) {
+    private Snack generateValidSnack(String theme, String subtopicName, SnackPhaseListener listener) {
+        listener.onPhase(SnackGenerationPhase.AWAITING_MODEL);
         LlmProvider.GeneratedSnack generated = callGenerateSnack(theme, subtopicName);
         if (!isValid(generated)) {
             log.warn("Snack validation failed for '{}', re-rolling once", subtopicName);
+            listener.onPhase(SnackGenerationPhase.AWAITING_MODEL);
             generated = callGenerateSnack(theme, subtopicName);
         }
         if (!isValid(generated)) {
             throw new ServiceUnavailableException("The AI service returned an incomplete snack. Please try again.");
         }
+        listener.onPhase(SnackGenerationPhase.ASSEMBLING);
         return new Snack(null, generated.concept(), generated.metaphor(),
                 generated.whyItMatters(), generated.related());
     }

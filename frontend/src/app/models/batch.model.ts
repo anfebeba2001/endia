@@ -6,10 +6,32 @@ export type GenerationStatus = 'PENDING' | 'GENERATING' | 'READY' | 'FAILED';
 export type BatchStatus = 'IN_PROGRESS' | 'PARTIAL' | 'COMPLETE' | 'FAILED';
 export type LlmErrorCause = 'UNAVAILABLE' | 'TIMEOUT' | 'NETWORK' | 'QUOTA' | 'MALFORMED';
 
+/** Real snack generation phase reported by the backend while an item is GENERATING (feature 008). */
+export type SnackGenerationPhase =
+  | 'RESOLVING_CONTEXT'
+  | 'AWAITING_MODEL'
+  | 'ASSEMBLING'
+  | 'PERSISTING';
+
+/** Static, user-safe message per phase. Never derived from a timer and carries no generated content. */
+export const PHASE_MESSAGES: Record<SnackGenerationPhase, string> = {
+  RESOLVING_CONTEXT: 'Finding the topic context…',
+  AWAITING_MODEL: 'Waiting for the AI response…',
+  ASSEMBLING: 'Assembling your snack…',
+  PERSISTING: 'Saving your snack…',
+};
+
+/** Map a reported phase to its message; unknown/absent phases return the generic fallback. */
+export function phaseMessage(phase: SnackGenerationPhase | null | undefined): string {
+  return phase && PHASE_MESSAGES[phase] ? PHASE_MESSAGES[phase] : 'Preparing your snack…';
+}
+
 export interface BatchItem {
   subtopicId: string;
   subtopicName: string;
   snackStatus: GenerationStatus;
+  /** Current real generation phase, non-null only while snackStatus === 'GENERATING'. */
+  snackPhase?: SnackGenerationPhase | null;
   snack: {
     id: string;
     subtopicId: string;

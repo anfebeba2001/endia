@@ -361,6 +361,8 @@ export interface BatchMockItem {
   subtopicId: string;
   subtopicName?: string;
   snackStatus: string;
+  /** Current real generation phase, non-null only while snackStatus === 'GENERATING' (feature 008). */
+  snackPhase?: string | null;
   snack?: unknown | null;
   snackCause?: string | null;
   quizStatus?: string;
@@ -431,11 +433,12 @@ export function batchItemFailed(subtopicId: string, cause = 'QUOTA'): BatchMockI
   };
 }
 
-export function batchItemGenerating(subtopicId: string): BatchMockItem {
+export function batchItemGenerating(subtopicId: string, phase?: string | null): BatchMockItem {
   return {
     subtopicId,
     subtopicName: SUBTOPICS.find((s) => s.id === subtopicId)?.name ?? subtopicId,
     snackStatus: 'GENERATING',
+    snackPhase: phase ?? null,
     snack: null,
     snackCause: null,
     quizStatus: 'GENERATING',
