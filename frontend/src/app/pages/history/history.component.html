@@ -1,0 +1,98 @@
+<section class="page history">
+  <header class="page__header">
+    <span class="step-chip">History</span>
+    <h1 class="page__title">Everything you've studied</h1>
+    <p class="page__subtitle">
+      A read-only look back at every theme you created, with the snacks and quiz questions
+      generated along the way.
+    </p>
+  </header>
+
+  @if (loading()) {
+    <div class="loading state" aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>Loading your history…</p>
+    </div>
+  } @else if (errorMessage(); as msg) {
+    <div class="error-banner" role="alert">{{ msg }}</div>
+  } @else if (themes().length === 0) {
+    <div class="empty-state history-empty" role="status">
+      <span class="empty-state__mark" aria-hidden="true"></span>
+      <h2 class="empty-state__title">No themes yet</h2>
+      <p class="empty-state__text">Create a theme from the home page and it will show up here.</p>
+    </div>
+  } @else {
+    <div class="history-list">
+      @for (theme of themes(); track theme.themeId) {
+        <article class="history-card">
+          <header class="history-card__head">
+            <div class="history-card__meta">
+              <h2 class="history-card__prompt">{{ theme.prompt }}</h2>
+              <time class="history-card__date" [attr.datetime]="theme.createdAt">
+                {{ formatDate(theme.createdAt) }}
+              </time>
+            </div>
+            <button
+              type="button"
+              class="history-card__toggle"
+              [attr.aria-expanded]="isExpanded(theme.themeId)"
+              (click)="toggle(theme.themeId)"
+            >
+              {{ isExpanded(theme.themeId) ? 'Hide details' : 'View details' }}
+            </button>
+          </header>
+
+          @if (isExpanded(theme.themeId)) {
+            <div class="history-subtopics">
+              @if (theme.subtopics.length === 0) {
+                <p class="history-subtopics__empty">No subtopics for this theme.</p>
+              }
+              @for (subtopic of theme.subtopics; track subtopic.id) {
+                <section class="history-subtopic">
+                  <h3 class="history-subtopic__name">{{ subtopic.name }}</h3>
+
+                  <div class="history-detail-grid">
+                    <div class="history-snacks">
+                      <h4 class="history-section__title">Snacks</h4>
+                      @if (subtopic.snacks.length === 0) {
+                        <p class="history-subtopic__empty">Nothing generated yet.</p>
+                      }
+                      @for (snack of subtopic.snacks; track snack.id) {
+                        <article class="history-snack">
+                          <p class="history-snack__concept">{{ snack.concept }}</p>
+                          <p class="history-snack__metaphor">{{ snack.metaphor }}</p>
+                          <p class="history-snack__why">{{ snack.whyItMatters }}</p>
+                          @if (snack.related.length > 0) {
+                            <ul class="history-snack__related">
+                              @for (rel of snack.related; track $index) {
+                                <li>{{ rel }}</li>
+                              }
+                            </ul>
+                          }
+                        </article>
+                      }
+                    </div>
+
+                    <div class="history-questions">
+                      <h4 class="history-section__title">Quiz questions</h4>
+                      @if (subtopic.quizQuestions.length === 0) {
+                        <p class="history-subtopic__empty">Nothing generated yet.</p>
+                      }
+                      @for (question of subtopic.quizQuestions; track question.id) {
+                        <article class="history-question">
+                          <span class="history-question__type">{{ question.type }}</span>
+                          <p class="history-question__prompt">{{ question.prompt }}</p>
+                          <p class="history-question__explanation">{{ question.explanation }}</p>
+                        </article>
+                      }
+                    </div>
+                  </div>
+                </section>
+              }
+            </div>
+          }
+        </article>
+      }
+    </div>
+  }
+</section>

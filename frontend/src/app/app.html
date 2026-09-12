@@ -5,9 +5,12 @@
       <span class="brand__dot" aria-hidden="true"></span>
       <span class="brand__name" translate="no">endia</span>
     </a>
-    <button class="theme-toggle" type="button" (click)="toggleTheme()" [attr.aria-label]="theme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'">
-      {{ theme() === 'dark' ? '☀ Light' : '☾ Dark' }}
-    </button>
+    <nav class="app-shell__nav" aria-label="Primary">
+      <a class="header-link" routerLink="/history">History</a>
+      <button class="theme-toggle" type="button" (click)="toggleTheme()" [attr.aria-label]="theme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'">
+        {{ theme() === 'dark' ? '☀ Light' : '☾ Dark' }}
+      </button>
+    </nav>
   </header>
   <main id="main" class="app-shell__main" tabindex="-1">
     <router-outlet></router-outlet>
