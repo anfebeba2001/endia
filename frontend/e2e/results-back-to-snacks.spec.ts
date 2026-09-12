@@ -69,15 +69,35 @@ test.describe('US1 — Return to snacks from results', () => {
     await expect(page.locator('.snack-index__item')).toHaveCount(3);
   });
 
-  test('Perfect score: renders Back to snacks in the footer', async ({ mockPage: page }) => {
+  test('Perfect score: renders Back to snacks and returns with no new batch', async ({
+    mockPage: page,
+  }) => {
     await setupQuizSummaryMock(page, { correctAnswers: 4, totalXp: 40 });
+
+    let batchPosts = 0;
+    page.on('request', (req) => {
+      if (req.method() === 'POST' && req.url().includes('/api/batches')) {
+        batchPosts += 1;
+      }
+    });
 
     await goToSnacksFromHome(page);
     await completeQuizToResults(page);
 
     await expect(page.locator('h1.results-header__title')).toHaveText('Perfect score!');
-    await expect(page.locator('.results-footer [data-testid="back-to-snacks"]')).toBeVisible();
+    const back = page.locator('.results-footer [data-testid="back-to-snacks"]');
+    await expect(back).toBeVisible();
     await expect(page.locator('.results-footer .primary-btn')).toBeVisible();
+
+    // FR-002/SC-002: the perfect-score footer returns with no new batch.
+    const before = batchPosts;
+    await back.click();
+    await page.waitForURL('**/snacks');
+    await page.locator('.snack-card').waitFor({ state: 'visible', timeout: 8000 });
+
+    expect(batchPosts).toBe(before);
+    await expect(page.locator('.snack-index__item')).toHaveCount(3);
+    await expect(page.locator('.snack-index__item--active')).toHaveText('Light reactions');
   });
 
   test('returns to the quizzed subtopic snack, not always the first', async ({
@@ -108,5 +128,48 @@ test.describe('US1 — Return to snacks from results', () => {
     await page.click('.results-footer .primary-btn');
     await page.waitForURL('/');
     await expect(page.locator('h1.hero__title')).toHaveText('Learn anything, bite by bite.');
+  });
+
+  test('keeps the current index when the quizzed subtopic has no matching snack', async ({
+    mockPage: page,
+  }) => {
+    await goToSnacksFromHome(page);
+
+    // Activate the second snack so the "current index" is not 0.
+    await page.locator('.snack-index__item').nth(1).click();
+    await expect(page.locator('.snack-card__chip')).toHaveText('Calvin cycle');
+
+    await completeQuizToResults(page);
+
+    // Simulate a quizzed subtopic that has no READY snack on return (FR-018).
+    await page.evaluate(() => {
+      const ng = (window as any).ng;
+      const comp = ng.getComponent(document.querySelector('app-results'));
+      comp.appState.selectedSubtopic.set({ id: 'sub-missing', name: 'Missing subtopic' });
+      comp.appState.quizSubTopicId.set('sub-missing');
+    });
+
+    await page.locator('.results-footer [data-testid="back-to-snacks"]').click();
+    await page.waitForURL('**/snacks');
+    await page.locator('.snack-card').waitFor({ state: 'visible', timeout: 8000 });
+
+    // FR-018: the last/current index is kept rather than jumping to an arbitrary snack.
+    await expect(page.locator('.snack-card__chip')).toHaveText('Calvin cycle');
+    await expect(page.locator('.snack-index__item--active')).toHaveText('Calvin cycle');
+  });
+
+  test('Back to snacks is keyboard reachable and activatable', async ({ mockPage: page }) => {
+    await goToSnacksFromHome(page);
+    await completeQuizToResults(page);
+
+    const back = page.locator('.results-footer [data-testid="back-to-snacks"]');
+    await back.focus();
+    await expect(back).toBeFocused();
+
+    // FR-020/SC-008: a real button activates with Enter.
+    await page.keyboard.press('Enter');
+    await page.waitForURL('**/snacks');
+    await page.locator('.snack-card').waitFor({ state: 'visible', timeout: 8000 });
+    await expect(page.locator('.snack-card')).toHaveCount(1);
   });
 });
