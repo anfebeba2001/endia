@@ -343,7 +343,7 @@ Once Foundational completes: Developer A takes US1 (results + hydration), Develo
   - User Story 4 (accessibility/consistency): **4/4** (T020–T023)
   - Integration: **6/6** (T024–T029)
   - Polish: **5/5** (T030–T034)
-- **Verification**: `npm run build` green; full Playwright suite **61 passed** (48 pre-existing + 13 new); named regression suite green unchanged; backend untouched (`git status` shows no `backend/` change; no package/schema delta).
+- **Verification**: `npm run build` green; full Playwright suite **67 passed** (48 pre-existing + 19 new: 6 `results-back-to-snacks.spec.ts` + 13 `snacks-navigation.spec.ts`); named regression suite green unchanged; backend untouched (`git status` shows no `backend/` change; no package/schema delta).
 - **Checklists**: `requirements.md`, `implementation.md`, `test.md`, `ux.md` all have **0 unchecked items**.
 - **Story task counts** (labeled tasks): US1 = 5, US2 = 4, US3 = 5, US4 = 4; unlabeled setup/foundational/integration/polish = 16.
 - **Parallel opportunities**: 12 tasks marked `[P]` across Setup/Foundational/User Stories/Integration/Polish.
