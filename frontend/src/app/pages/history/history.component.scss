@@ -1,0 +1,213 @@
+/* History (feature 011) — a read-only record of past themes.
+   Reuses the global `.page` shell, `.step-chip`, `.empty-state`, `.spinner`,
+   `.error-banner` primitives so it reads as one more page of the app. */
+
+:host {
+  display: block;
+  animation: page-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.history {
+  /* slightly narrower than the default page for long-form reading */
+  max-width: 900px;
+}
+
+.history-list {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.history-card {
+  padding: 1.1rem 1.25rem 1.25rem;
+  background: var(--surface-card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  animation: card-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  &__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.9rem 1rem;
+    flex-wrap: wrap;
+  }
+
+  &__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  &__prompt {
+    margin: 0;
+    font: 700 1.1rem/1.3 var(--font-display);
+    color: var(--ink);
+    overflow-wrap: anywhere;
+    text-wrap: pretty;
+  }
+
+  &__date {
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__toggle {
+    flex-shrink: 0;
+    padding: 0.42rem 0.9rem;
+    border: 1.5px solid var(--hairline-strong);
+    border-radius: var(--radius-pill);
+    background: var(--surface-soft);
+    color: var(--ink);
+    font: 600 0.82rem/1.3 var(--font-body);
+    cursor: pointer;
+    touch-action: manipulation;
+    transition:
+      border-color 0.15s ease,
+      background 0.15s ease,
+      transform 0.12s ease;
+
+    &:hover {
+      border-color: var(--accent);
+      background: var(--surface-card);
+      transform: translateY(-1px);
+    }
+
+    &:active {
+      transform: translateY(0) scale(0.98);
+    }
+
+    &:focus-visible {
+      outline: 3px solid var(--accent);
+      outline-offset: 2px;
+    }
+  }
+}
+
+/* Expanded detail: one flat surface with hairline separators rather than
+   cards nested inside cards inside a card. */
+.history-subtopics {
+  margin-top: 1.1rem;
+  display: grid;
+  gap: 1.35rem;
+}
+
+.history-subtopics__empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.history-subtopic {
+  padding-top: 1.15rem;
+  border-top: 1px dashed var(--hairline-strong);
+
+  &__name {
+    margin: 0 0 0.7rem;
+    font: 700 1.02rem/1.3 var(--font-display);
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    text-wrap: pretty;
+    overflow-wrap: anywhere;
+  }
+
+  &__empty {
+    margin: 0.35rem 0 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-style: italic;
+  }
+}
+
+.history-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.9rem 1.6rem;
+  align-items: start;
+}
+
+.history-section__title {
+  margin: 0 0 0.4rem;
+  font: 600 0.72rem/1.3 var(--font-mono);
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Snacks and questions read as list entries separated by a hairline,
+   not as boxed mini-cards. */
+.history-snack,
+.history-question {
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--hairline);
+
+  &:first-of-type {
+    padding-top: 0;
+    border-top: none;
+  }
+
+  p {
+    margin: 0 0 0.35rem;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    text-wrap: pretty;
+    overflow-wrap: anywhere;
+  }
+
+  p:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.history-snack__concept {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.history-snack__metaphor {
+  color: var(--body);
+}
+
+.history-snack__why {
+  color: var(--muted);
+}
+
+.history-snack__related {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  list-style: none;
+  margin: 0.55rem 0 0;
+  padding: 0;
+
+  li {
+    padding: 0.15rem 0.5rem;
+    border-radius: var(--radius-pill);
+    background: var(--accent-soft);
+    color: var(--accent-deep);
+    font: 600 0.72rem/1.4 var(--font-mono);
+  }
+}
+
+.history-question__type {
+  display: inline-block;
+  margin-bottom: 0.4rem;
+  padding: 0.12rem 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface-soft);
+  border: 1px solid var(--hairline-strong);
+  color: var(--muted);
+  font: 600 0.68rem/1.4 var(--font-mono);
+  letter-spacing: 0.05em;
+}
+
+.history-question__prompt {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.history-question__explanation {
+  color: var(--muted);
+}

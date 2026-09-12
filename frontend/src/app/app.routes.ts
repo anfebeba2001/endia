@@ -32,6 +32,12 @@ export const routes: Routes = [
     title: 'Endia — Results',
   },
   {
+    path: 'history',
+    loadComponent: () =>
+      import('./pages/history/history.component').then((m) => m.HistoryComponent),
+    title: 'Endia — History',
+  },
+  {
     path: '**',
     redirectTo: '',
   },

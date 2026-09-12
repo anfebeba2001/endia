@@ -1,4 +1,5 @@
 import { test as base, type Page, type Route } from '@playwright/test';
+import type { ThemeHistory } from '../src/app/models/history.model';
 
 // ─── Mock Data ───────────────────────────────────────────────────────────────
 
@@ -68,6 +69,36 @@ export async function setupThemesSuggestMock(page: Page, subtopics = SUBTOPICS) 
         themeId: THEME_ID,
         subtopics,
       }),
+    });
+  });
+}
+
+/**
+ * Mock the read-only history endpoint `GET /api/themes` (feature 011). Distinct from the
+ * `POST /api/themes/suggest` route. Deliberately NOT part of `setupAllMocks` so the shared fixture
+ * used by every existing spec is unchanged; install it explicitly from `theme-history.spec.ts`.
+ *
+ * @param themes the JSON array body (already newest-first, mirroring the backend ordering)
+ * @param opts   optional `delayMs` (loading state) and `status`/`body` (error state)
+ */
+export async function setupThemesHistoryMock(
+  page: Page,
+  themes: ThemeHistory[],
+  opts?: { delayMs?: number; status?: number; body?: unknown },
+) {
+  await page.route('**/api/themes', async (route: Route) => {
+    if (route.request().method() !== 'GET') {
+      return route.continue();
+    }
+    if (opts?.delayMs) {
+      await new Promise((r) => setTimeout(r, opts.delayMs));
+    }
+    const status = opts?.status ?? 200;
+    const body = opts?.body ?? themes;
+    await route.fulfill({
+      status,
+      contentType: 'application/json',
+      body: JSON.stringify(body),
     });
   });
 }
