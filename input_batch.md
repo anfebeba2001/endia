@@ -42,27 +42,10 @@
 - [ ] If both primary and alternate providers fail, a meaningful error is returned (consistent with Task 5 surface behaviour).
 - [ ] Manual test simulates a primary-provider SERVICE_UNAVAILABLE and confirms the alternate provider is used and the flow still succeeds.
 
-### Task 10: Read-only history of created themes with snacks and quiz questions
-
-- Status: no iniciado
-- Ready: yes
-- Sources: item 11
-- Description: Add a read-only history view of every created theme. Backend `GET /api/themes` returns all themes (newest first) with their subtopics, snacks, and quiz questions; frontend adds a `/history` page and header link to browse it.
-
-**Acceptance criteria:**
-- [ ] `GET /api/themes` (`ThemeController`) returns `200` with a JSON array of all themes ordered by `createdAt` descending; each entry has `themeId`, `prompt`, `createdAt`, and `subtopics`.
-- [ ] Each subtopic entry has `id`, `name`, `snacks` (each with `id`, `concept`, `metaphor`, `whyItMatters`, `related`) and `quizQuestions` (each with `id`, `type`, `prompt`, `explanation`).
-- [ ] `ThemeService.listHistory()` is `@Transactional(readOnly = true)` and returns an empty array with HTTP 200 when no themes exist, with no `LazyInitializationException`.
-- [ ] New response DTO `ThemeHistoryApiResponse` is added under `interfaces/rest/dto`; existing endpoints (`POST /api/themes/suggest`, `POST /api/snacks/generate`, `/api/batches`, quiz) keep their current behaviour.
-- [ ] Frontend adds a lazy-loaded `/history` route (`HistoryComponent`) and a "History" link in the app header (`app.html`); `ThemeService.listHistory()` calls `GET /api/themes` and maps it into a `ThemeHistory` model.
-- [ ] The `/history` page shows a loading state, an error message via `ErrorService` on failure, and an empty-state message when there are no themes; for each theme it renders `prompt` and `createdAt` and lets the user view its subtopics with their snacks and quiz questions (read-only, no generation).
-- [ ] Tests cover the backend ordering/nested data/empty case and the frontend empty + populated states; existing routes and the home→subtopics→snacks→quiz→results flow still pass.
-
 ## Current status
 
 - Task 3: Ready (awaiting implementation)
 - Task 4: Ready (awaiting implementation)
 - Task 6: Ready (awaiting implementation)
-- Task 10: Ready (awaiting implementation) — from item 11 (theme history with snacks and questions)
 
 12. Modify the prompt of the snacks to use bold and render it for important words and sentences, break the long paragraphs into bulletpoints and shorter paragrapsh
