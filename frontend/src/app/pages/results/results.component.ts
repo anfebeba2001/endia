@@ -62,4 +62,18 @@ export class ResultsComponent {
     this.appState.reset();
     this.router.navigate(['/']);
   }
+
+  /**
+   * FR-001..FR-003/FR-018: return to the generated snacks, preserving state and activating the
+   * quizzed subtopic's snack. Never calls `reset()` and issues no HTTP request.
+   */
+  backToSnacks(): void {
+    const subtopicId = this.appState.selectedSubtopic()?.id ?? this.appState.quizSubTopicId();
+    const idx = this.appState.snackIndexForSubtopic(subtopicId);
+    if (idx >= 0) {
+      this.appState.setSnackIndex(idx);
+    }
+    // No match (FR-018): keep the last/current index rather than jumping arbitrarily.
+    this.router.navigate(['/snacks']);
+  }
 }
