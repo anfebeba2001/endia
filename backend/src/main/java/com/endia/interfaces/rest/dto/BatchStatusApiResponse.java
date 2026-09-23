@@ -33,7 +33,8 @@ public record BatchStatusApiResponse(
             String concept,
             String metaphor,
             String whyItMatters,
-            List<String> related
+            List<String> related,
+            List<SnackKeywordDto> keywords
     ) {
     }
 }

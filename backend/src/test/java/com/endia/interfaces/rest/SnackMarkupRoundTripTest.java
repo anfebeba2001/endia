@@ -6,6 +6,7 @@ import com.endia.application.service.SnackService;
 import com.endia.application.service.ThemeService;
 import com.endia.domain.enums.GenerationStatus;
 import com.endia.domain.model.Snack;
+import com.endia.domain.model.SnackKeyword;
 import com.endia.domain.model.Subtopic;
 import com.endia.domain.model.Theme;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -53,6 +54,10 @@ class SnackMarkupRoundTripTest {
     private static final String METAPHOR = "A **solar kitchen**.";
     private static final String WHY = "Why it matters with <script>alert(1)</script> payload.";
     private static final List<String> RELATED = List.of("Alpha", "Beta");
+    /** Keyword text also carries markup to prove it is not stripped or HTML-escaped (FR-011). */
+    private static final List<SnackKeyword> KEYWORDS = List.of(
+            new SnackKeyword("mitosis", "cell division"),
+            new SnackKeyword("<b>ATP</b>", "energy <currency>"));
 
     @Mock
     private SnackService snackService;
@@ -89,7 +94,7 @@ class SnackMarkupRoundTripTest {
         theme.setId(themeId);
         Subtopic subtopic = new Subtopic(theme, "Light reactions");
         subtopic.setId(subtopicId);
-        snack = new Snack(subtopic, CONCEPT, METAPHOR, WHY, RELATED);
+        snack = new Snack(subtopic, CONCEPT, METAPHOR, WHY, RELATED, KEYWORDS);
         snack.setId(UUID.randomUUID());
     }
 
@@ -106,8 +111,13 @@ class SnackMarkupRoundTripTest {
                 .andExpect(jsonPath("$.snacks[0].metaphor").value(METAPHOR))
                 .andExpect(jsonPath("$.snacks[0].whyItMatters").value(WHY))
                 .andExpect(jsonPath("$.snacks[0].related[0]").value("Alpha"))
-                // Contract shape: exactly the 7 existing SnackItem fields, no more.
-                .andExpect(jsonPath("$.snacks[0].length()").value(7));
+                // Feature 013: keywords are present, in order, and neither stripped nor HTML-escaped.
+                .andExpect(jsonPath("$.snacks[0].keywords[0].term").value("mitosis"))
+                .andExpect(jsonPath("$.snacks[0].keywords[0].definition").value("cell division"))
+                .andExpect(jsonPath("$.snacks[0].keywords[1].term").value("<b>ATP</b>"))
+                .andExpect(jsonPath("$.snacks[0].keywords[1].definition").value("energy <currency>"))
+                // Contract shape: exactly the 8 SnackItem fields (7 existing + keywords).
+                .andExpect(jsonPath("$.snacks[0].length()").value(8));
     }
 
     @Test
@@ -122,7 +132,9 @@ class SnackMarkupRoundTripTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].snack.concept").value(CONCEPT))
                 .andExpect(jsonPath("$.items[0].snack.whyItMatters").value(WHY))
-                .andExpect(jsonPath("$.items[0].snack.length()").value(7));
+                .andExpect(jsonPath("$.items[0].snack.keywords[0].term").value("mitosis"))
+                .andExpect(jsonPath("$.items[0].snack.keywords[1].definition").value("energy <currency>"))
+                .andExpect(jsonPath("$.items[0].snack.length()").value(8));
     }
 
     @Test
@@ -135,13 +147,14 @@ class SnackMarkupRoundTripTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.recap.snack.concept").value(CONCEPT))
                 .andExpect(jsonPath("$.recap.snack.metaphor").value(METAPHOR))
-                .andExpect(jsonPath("$.recap.snack.length()").value(7));
+                .andExpect(jsonPath("$.recap.snack.keywords[0].term").value("mitosis"))
+                .andExpect(jsonPath("$.recap.snack.length()").value(8));
     }
 
     @Test
     void historyResponseReturnsMarkupUnmodifiedWithUnchangedShape() throws Exception {
         ThemeService.SnackHistory snackHistory = new ThemeService.SnackHistory(
-                snack.getId(), CONCEPT, METAPHOR, WHY, RELATED);
+                snack.getId(), CONCEPT, METAPHOR, WHY, RELATED, KEYWORDS);
         ThemeService.SubtopicHistory subtopicHistory = new ThemeService.SubtopicHistory(
                 subtopicId, "Light reactions", List.of(snackHistory), List.of());
         when(themeService.listHistory()).thenReturn(List.of(new ThemeService.ThemeHistory(
@@ -152,7 +165,9 @@ class SnackMarkupRoundTripTest {
                 .andExpect(jsonPath("$[0].subtopics[0].snacks[0].concept").value(CONCEPT))
                 .andExpect(jsonPath("$[0].subtopics[0].snacks[0].whyItMatters").value(WHY))
                 .andExpect(jsonPath("$[0].subtopics[0].snacks[0].related[0]").value("Alpha"))
-                // History SnackItem exposes exactly 5 fields (id, concept, metaphor, whyItMatters, related).
-                .andExpect(jsonPath("$[0].subtopics[0].snacks[0].length()").value(5));
+                .andExpect(jsonPath("$[0].subtopics[0].snacks[0].keywords[0].term").value("mitosis"))
+                .andExpect(jsonPath("$[0].subtopics[0].snacks[0].keywords[1].definition").value("energy <currency>"))
+                // History SnackItem exposes exactly 6 fields (id, concept, metaphor, whyItMatters, related, keywords).
+                .andExpect(jsonPath("$[0].subtopics[0].snacks[0].length()").value(6));
     }
 }

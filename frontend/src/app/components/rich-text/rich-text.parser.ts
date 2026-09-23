@@ -1,3 +1,5 @@
+import type { SnackKeyword } from '../../models/snack.model';
+import { highlightKeywords } from './keyword-highlighter';
 import { RichBlock, RichInline } from './rich-text.model';
 
 /**
@@ -35,7 +37,16 @@ const ENTITY_PATTERN = /&(#x[0-9a-fA-F]+|#\d+|amp|lt|gt|quot|apos);/g;
  * Empty or whitespace-only input yields zero blocks so no empty `<p>`/`<ul>` artifact is produced
  * (FR-014).
  */
-export function parseRichText(text: string): RichBlock[] {
+export function parseRichText(text: string, keywords: SnackKeyword[] = []): RichBlock[] {
+  const baseBlocks = parseBase(text);
+  if (keywords.length === 0) {
+    return baseBlocks;
+  }
+  return highlightKeywords(baseBlocks, keywords);
+}
+
+/** The feature-012 base grammar, unchanged; keyword highlighting is layered on top. */
+function parseBase(text: string): RichBlock[] {
   if (!text) {
     return [];
   }
@@ -117,7 +128,12 @@ export function parseInline(text: string): RichInline[] {
       const bold = matchBold(text, i);
       if (bold) {
         flushText();
-        nodes.push({ kind: 'bold', text: decodeEntities(bold.content) });
+        // Bold is recursive: its content is a single text child that the highlight pass may split
+        // into text/keyword nodes (FR-014, US2 AS4). With no keywords it renders exactly as before.
+        nodes.push({
+          kind: 'bold',
+          nodes: [{ kind: 'text', text: decodeEntities(bold.content) }],
+        });
         i = bold.end;
         continue;
       }

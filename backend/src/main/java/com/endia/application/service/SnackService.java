@@ -7,6 +7,7 @@ import com.endia.domain.exception.EntityNotFoundException;
 import com.endia.domain.exception.LlmGenerationException;
 import com.endia.domain.exception.ServiceUnavailableException;
 import com.endia.domain.model.Snack;
+import com.endia.domain.model.SnackKeyword;
 import com.endia.domain.model.Subtopic;
 import com.endia.domain.model.Theme;
 import com.endia.infrastructure.persistence.JpaSnackRepository;
@@ -18,7 +19,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -132,7 +137,46 @@ public class SnackService {
         }
         listener.onPhase(SnackGenerationPhase.ASSEMBLING);
         return new Snack(null, generated.concept(), generated.metaphor(),
-                generated.whyItMatters(), generated.related());
+                generated.whyItMatters(), generated.related(), normalizeKeywords(generated.keywords()));
+    }
+
+    /**
+     * Normalizes the model-provided keyword list (feature 013, FR-007..FR-009), order-preserving:
+     * drops nulls and blank terms/definitions, trims values, truncates definitions to the first
+     * 3 whitespace-separated tokens, drops empty-after-truncation entries, and de-duplicates by
+     * trimmed term case-insensitively (keeping the first).
+     *
+     * <p>The result may be empty; keywords are <strong>never</strong> consulted by {@link #isValid},
+     * so their presence, absence or invalidity can never trigger a re-roll or a failure.
+     */
+    private List<SnackKeyword> normalizeKeywords(List<SnackKeyword> raw) {
+        if (raw == null || raw.isEmpty()) {
+            return List.of();
+        }
+        List<SnackKeyword> normalized = new ArrayList<>();
+        Set<String> seenTerms = new HashSet<>();
+        for (SnackKeyword keyword : raw) {
+            if (keyword == null) {
+                continue;
+            }
+            String term = keyword.term() == null ? "" : keyword.term().trim();
+            String definition = keyword.definition() == null ? "" : keyword.definition().trim();
+            if (term.isEmpty() || definition.isEmpty()) {
+                continue;
+            }
+            String[] tokens = definition.split("\\s+");
+            if (tokens.length > 3) {
+                definition = String.join(" ", Arrays.copyOf(tokens, 3));
+            }
+            if (definition.isEmpty()) {
+                continue;
+            }
+            if (!seenTerms.add(term.toLowerCase(Locale.ROOT))) {
+                continue;
+            }
+            normalized.add(new SnackKeyword(term, definition));
+        }
+        return normalized;
     }
 
     private boolean isValid(LlmProvider.GeneratedSnack snack) {

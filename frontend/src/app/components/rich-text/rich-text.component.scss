@@ -41,3 +41,46 @@
 .rich-text__strong {
   font-weight: 700;
 }
+
+// Feature 013 — highlighted keyword control.
+//
+// Colour comes from the global `--keyword-ink` token (styles.scss), so the highlight is part of
+// the ENDIA palette and follows the light/dark theme automatically (the token swaps under
+// `[data-theme="dark"]`). The dotted underline plus the weight give a non-colour affordance
+// (WCAG 1.4.1), so the highlight never relies on colour alone, and the ochre hue stays clearly
+// distinct from the tomato accent used by real links. Typography is inherited from the host so
+// feature-012 formatting (bold, paragraphs, lists) is preserved.
+.rich-text__keyword {
+  display: inline;
+  margin: 0;
+  padding: 0 0.05em;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--keyword-ink);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.15em;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: color 0.15s ease;
+}
+
+// Inside **bold**, keep the surrounding emphasis weight instead of dropping to 600.
+.rich-text__strong .rich-text__keyword {
+  font-weight: inherit;
+}
+
+.rich-text__keyword:hover,
+.rich-text__keyword:focus-visible,
+.rich-text__keyword:active {
+  color: var(--keyword-ink-hover);
+}
+
+.rich-text__keyword:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}

@@ -4,12 +4,14 @@ import { AppStateService } from '../../services/app-state.service';
 import { QuizService } from '../../services/quiz.service';
 import { ErrorService } from '../../services/error.service';
 import { QuizSummaryResponse } from '../../models/quiz.model';
+import { SnackKeyword } from '../../models/snack.model';
 import { RichTextComponent } from '../../components/rich-text/rich-text.component';
+import { KeywordDefinitionCardComponent } from '../../components/keyword-definition-card/keyword-definition-card.component';
 
 @Component({
   selector: 'app-results',
   standalone: true,
-  imports: [RichTextComponent],
+  imports: [RichTextComponent, KeywordDefinitionCardComponent],
   templateUrl: './results.component.html',
   styleUrl: './results.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -18,6 +20,9 @@ export class ResultsComponent {
   readonly loading = signal(true);
   readonly errorMessage = signal<string | null>(null);
   readonly summary = signal<QuizSummaryResponse | null>(null);
+  /** Feature 013: single active keyword/anchor pair → exactly one card per page (FR-018/FR-021). */
+  readonly activeKeyword = signal<SnackKeyword | null>(null);
+  readonly activeKeywordAnchor = signal<HTMLElement | null>(null);
 
   readonly perfect = computed(() => {
     const s = this.summary();
@@ -36,7 +41,7 @@ export class ResultsComponent {
     private appState: AppStateService,
     private quizService: QuizService,
     private errorService: ErrorService,
-    private router: Router
+    private router: Router,
   ) {
     void this.loadSummary();
   }
@@ -58,6 +63,18 @@ export class ResultsComponent {
         this.errorMessage.set(this.errorService.getMessage(err));
       },
     });
+  }
+
+  /** Feature 013: open the definition card for the activated term (replaces any previous one). */
+  openKeyword(event: { keyword: SnackKeyword; anchor: HTMLElement }): void {
+    this.activeKeyword.set(event.keyword);
+    this.activeKeywordAnchor.set(event.anchor);
+  }
+
+  /** Feature 013: clear the active keyword after any dismissal. */
+  closeKeyword(): void {
+    this.activeKeyword.set(null);
+    this.activeKeywordAnchor.set(null);
   }
 
   restart(): void {

@@ -5,6 +5,7 @@ import com.endia.domain.enums.DragDropVariant;
 import com.endia.domain.enums.LlmErrorCause;
 import com.endia.domain.exception.LlmGenerationException;
 import com.endia.domain.model.DragDropContent;
+import com.endia.domain.model.SnackKeyword;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.MediaType;
@@ -67,7 +68,20 @@ public class OpenAiLlmProvider implements LlmProvider {
             if (node.path("related").isArray()) {
                 node.path("related").forEach(n -> related.add(n.asText()));
             }
-            return new GeneratedSnack(concept, metaphor, whyItMatters, related);
+            // Feature 013: parse keywords defensively — a missing array yields an empty list and a
+            // malformed element is skipped rather than failing the whole snack (FR-006).
+            List<SnackKeyword> keywords = new ArrayList<>();
+            JsonNode keywordsNode = node.path("keywords");
+            if (keywordsNode.isArray()) {
+                keywordsNode.forEach(k -> {
+                    if (k.isObject()) {
+                        keywords.add(new SnackKeyword(
+                                k.path("term").asText(null),
+                                k.path("definition").asText(null)));
+                    }
+                });
+            }
+            return new GeneratedSnack(concept, metaphor, whyItMatters, related, keywords);
         } catch (Exception e) {
             throw malformed("Failed to parse LLM snack response", e);
         }

@@ -8,8 +8,19 @@ Return ONLY a JSON object in exactly this shape:
   "concept": "A clear explanation (3-6 sentences) of the core idea.",
   "metaphor": "A relatable real-life analogy or metaphor that makes the concept intuitive (2-4 sentences).",
   "whyItMatters": "Why this matters, its stakes, and 1-2 common pitfalls or misconceptions learners should avoid (2-4 sentences).",
-  "related": ["Related concept 1", "Related concept 2", "Related concept 3"]
+  "related": ["Related concept 1", "Related concept 2", "Related concept 3"],
+  "keywords": [
+    { "term": "Key term 1", "definition": "at most three words" },
+    { "term": "Key term 2", "definition": "at most three words" }
+  ]
 }
+
+KEYWORDS RULES:
+- "keywords" must be an array of objects, each with exactly two fields: "term" and "definition".
+- Provide 2-5 keywords for a non-trivial snack. A short snack may have fewer.
+- Each "definition" must be a very short gloss of at most 3 words (never more than three words).
+- Each "term" must appear verbatim in the snack body text (in "concept", "metaphor" or "whyItMatters"), exactly as written, so it can be located and highlighted.
+- Keyword text is plain text only: do NOT use any markup (no bold markers, no HTML, no links, no formatting).
 
 FORMATTING RULES (apply to "concept", "metaphor" and "whyItMatters"):
 - Wrap the most important words or sentences in bold markers: two asterisks, then the text, then two asterisks, for example "**Photosynthesis** turns light into **chemical energy**". Use bold sparingly, only for the key terms.

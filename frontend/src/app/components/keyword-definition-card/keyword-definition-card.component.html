@@ -1,0 +1,30 @@
+<!--
+  SECURITY BOUNDARY (feature 013): no [innerHTML] and no DomSanitizer. The keyword term and
+  definition are untrusted and are rendered as escaped interpolation only, so markup is inert text
+  and readable content is preserved (FR-026..FR-028).
+-->
+@if (keyword(); as kw) {
+  <div
+    #card
+    class="keyword-card"
+    [class.keyword-card--sheet]="sheet()"
+    [style.top]="position()?.top"
+    [style.left]="position()?.left"
+    role="dialog"
+    aria-modal="false"
+    [attr.aria-label]="'Definition: ' + kw.term"
+  >
+    <div class="keyword-card__body">
+      <button
+        type="button"
+        class="keyword-card__close"
+        aria-label="Close definition"
+        (click)="close()"
+      >
+        ×
+      </button>
+      <p class="keyword-card__term">{{ kw.term }}</p>
+      <p class="keyword-card__definition">{{ kw.definition }}</p>
+    </div>
+  </div>
+}

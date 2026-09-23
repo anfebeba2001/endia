@@ -2,6 +2,7 @@ package com.endia.application.port;
 
 import com.endia.domain.enums.DragDropVariant;
 import com.endia.domain.model.DragDropContent;
+import com.endia.domain.model.SnackKeyword;
 
 import java.util.List;
 
@@ -28,7 +29,13 @@ public interface LlmProvider {
      */
     List<GeneratedQuestion> generateQuiz(String theme, String subtopicName, int count, DragDropVariant variant);
 
-    record GeneratedSnack(String concept, String metaphor, String whyItMatters, List<String> related) {
+    record GeneratedSnack(String concept, String metaphor, String whyItMatters, List<String> related,
+                          List<SnackKeyword> keywords) {
+
+        /** Backward-compatible overload for callers/tests that predate keywords (FR-030). */
+        public GeneratedSnack(String concept, String metaphor, String whyItMatters, List<String> related) {
+            this(concept, metaphor, whyItMatters, related, List.of());
+        }
     }
 
     record GeneratedQuestion(

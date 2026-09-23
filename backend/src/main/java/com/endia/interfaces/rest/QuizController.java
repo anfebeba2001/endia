@@ -8,6 +8,7 @@ import com.endia.interfaces.rest.dto.QuizAnswerApiResponse;
 import com.endia.interfaces.rest.dto.QuizGenerateApiRequest;
 import com.endia.interfaces.rest.dto.QuizGenerateApiResponse;
 import com.endia.interfaces.rest.dto.QuizSummaryApiResponse;
+import com.endia.interfaces.rest.dto.SnackKeywordDto;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -112,6 +113,9 @@ public class QuizController {
                 s.getConcept(),
                 s.getMetaphor(),
                 s.getWhyItMatters(),
-                s.getRelated());
+                s.getRelated(),
+                s.getKeywords() == null
+                        ? List.of()
+                        : s.getKeywords().stream().map(SnackKeywordDto::from).toList());
     }
 }

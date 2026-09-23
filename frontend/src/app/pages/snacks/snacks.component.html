@@ -57,7 +57,9 @@
                 [attr.aria-current]="i === currentIndex() ? 'true' : null"
                 [disabled]="item.snackStatus !== 'READY'"
                 (click)="selectIndex(i)"
-              >{{ item.subtopicName }}</button>
+              >
+                {{ item.subtopicName }}
+              </button>
             </li>
           }
         </ol>
@@ -79,13 +81,28 @@
               </div>
 
               <h2 class="snack-card__concept-title">Concept</h2>
-              <app-rich-text class="snack-card__concept" [text]="snack.concept" />
+              <app-rich-text
+                class="snack-card__concept"
+                [text]="snack.concept"
+                [keywords]="snack.keywords ?? []"
+                (keywordSelected)="openKeyword($event)"
+              />
 
               <h2 class="snack-card__concept-title">Metaphor</h2>
-              <app-rich-text class="snack-card__metaphor" [text]="snack.metaphor" />
+              <app-rich-text
+                class="snack-card__metaphor"
+                [text]="snack.metaphor"
+                [keywords]="snack.keywords ?? []"
+                (keywordSelected)="openKeyword($event)"
+              />
 
               <h2 class="snack-card__concept-title">Why it matters</h2>
-              <app-rich-text class="snack-card__why" [text]="snack.whyItMatters" />
+              <app-rich-text
+                class="snack-card__why"
+                [text]="snack.whyItMatters"
+                [keywords]="snack.keywords ?? []"
+                (keywordSelected)="openKeyword($event)"
+              />
 
               @if (snack.related.length) {
                 <div class="snack-card__related">
@@ -104,18 +121,24 @@
                   class="ghost-btn nav-btn--prev"
                   [disabled]="!hasPrev()"
                   (click)="prev()"
-                >← Previous</button>
+                >
+                  ← Previous
+                </button>
                 <button
                   type="button"
                   class="primary-btn nav-btn--next"
                   [disabled]="!canNext()"
                   (click)="next()"
-                >Next →</button>
+                >
+                  Next →
+                </button>
                 @if (nextSnack(); as nxt) {
                   @if (nxt.snackStatus !== 'READY') {
                     <span class="cooking-label">
                       <span class="spinner spinner--sm" aria-hidden="true"></span>
-                      {{ nxt.snackStatus === 'FAILED' ? 'Next one failed' : 'Next snack is cooking…' }}
+                      {{
+                        nxt.snackStatus === 'FAILED' ? 'Next one failed' : 'Next snack is cooking…'
+                      }}
                     </span>
                   }
                 } @else {
@@ -150,4 +173,11 @@
       </div>
     </div>
   }
+
+  <!-- Exactly one definition card per page (FR-021); mounted once regardless of the active snack. -->
+  <app-keyword-definition-card
+    [keyword]="activeKeyword()"
+    [anchor]="activeKeywordAnchor()"
+    (closed)="closeKeyword()"
+  />
 </section>

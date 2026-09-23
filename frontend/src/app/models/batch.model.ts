@@ -1,6 +1,7 @@
 // Batch / progressive snack delivery model (FR-001..004)
 
 import { QuizQuestion } from './quiz.model';
+import type { SnackKeyword } from './snack.model';
 
 export type GenerationStatus = 'PENDING' | 'GENERATING' | 'READY' | 'FAILED';
 export type BatchStatus = 'IN_PROGRESS' | 'PARTIAL' | 'COMPLETE' | 'FAILED';
@@ -8,10 +9,7 @@ export type LlmErrorCause = 'UNAVAILABLE' | 'TIMEOUT' | 'NETWORK' | 'QUOTA' | 'M
 
 /** Real snack generation phase reported by the backend while an item is GENERATING (feature 008). */
 export type SnackGenerationPhase =
-  | 'RESOLVING_CONTEXT'
-  | 'AWAITING_MODEL'
-  | 'ASSEMBLING'
-  | 'PERSISTING';
+  'RESOLVING_CONTEXT' | 'AWAITING_MODEL' | 'ASSEMBLING' | 'PERSISTING';
 
 /** Static, user-safe message per phase. Never derived from a timer and carries no generated content. */
 export const PHASE_MESSAGES: Record<SnackGenerationPhase, string> = {
@@ -40,6 +38,7 @@ export interface BatchItem {
     metaphor: string;
     whyItMatters: string;
     related: string[];
+    keywords?: SnackKeyword[];
   } | null;
   snackCause: LlmErrorCause | null;
   quizStatus: GenerationStatus;

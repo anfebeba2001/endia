@@ -114,6 +114,7 @@ export async function setupSnacksGenerateMock(page: Page) {
       metaphor: `Imagine it like a kitchen — the ingredients are raw materials and the chef is the enzyme that transforms them.`,
       whyItMatters: `Understanding this prevents the common misconception that plants only photosynthesize during the day.`,
       related: ['ATP synthase', 'Electron transport', 'Photophosphorylation'],
+      keywords: [],
     }));
     await route.fulfill({
       status: 200,
@@ -230,6 +231,7 @@ function buildSnack(id: string, i: number) {
     metaphor: `Imagine it like a kitchen — the ingredients are raw materials and the chef is the enzyme that transforms them.`,
     whyItMatters: `Understanding this prevents the common misconception that plants only photosynthesize during the day.`,
     related: ['ATP synthase', 'Electron transport', 'Photophosphorylation'],
+    keywords: [],
   };
 }
 
@@ -537,7 +539,8 @@ export async function setupConfigurableBatchMock(
     const batchId = url.pathname.split('/').pop() ?? '';
     const subIds = subtopicsByBatch.get(batchId) ?? SUBTOPICS.map((s) => s.id);
     pollsByBatch.set(batchId, (pollsByBatch.get(batchId) ?? 0) + 1);
-    const delay = typeof opts.pollDelayMs === 'function' ? opts.pollDelayMs(pollCount) : opts.pollDelayMs;
+    const delay =
+      typeof opts.pollDelayMs === 'function' ? opts.pollDelayMs(pollCount) : opts.pollDelayMs;
     if (delay && delay > 0) {
       await new Promise((r) => setTimeout(r, delay));
     }

@@ -4,6 +4,7 @@ import com.endia.application.service.SnackService;
 import com.endia.domain.model.Snack;
 import com.endia.interfaces.rest.dto.SnackGenerateApiRequest;
 import com.endia.interfaces.rest.dto.SnackGenerateApiResponse;
+import com.endia.interfaces.rest.dto.SnackKeywordDto;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -35,9 +36,17 @@ public class SnackController {
                         s.getConcept(),
                         s.getMetaphor(),
                         s.getWhyItMatters(),
-                        s.getRelated()))
+                        s.getRelated(),
+                        toKeywordDtos(s)))
                 .toList();
 
         return ResponseEntity.ok(new SnackGenerateApiResponse(items));
+    }
+
+    private static List<SnackKeywordDto> toKeywordDtos(Snack snack) {
+        if (snack.getKeywords() == null) {
+            return List.of();
+        }
+        return snack.getKeywords().stream().map(SnackKeywordDto::from).toList();
     }
 }

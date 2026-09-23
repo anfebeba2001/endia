@@ -12,11 +12,17 @@
 
       @if (perfect()) {
         <svg class="medal" aria-hidden="true" viewBox="0 0 64 64" fill="none">
-          <path d="M13 5 24 27" stroke="#C8861E" stroke-width="7" stroke-linecap="round"/>
-          <path d="M51 5 40 27" stroke="#C8861E" stroke-width="7" stroke-linecap="round"/>
-          <circle cx="32" cy="38" r="19" fill="#F3C46B"/>
-          <circle cx="32" cy="38" r="14" fill="none" stroke="#C8861E" stroke-width="2.5"/>
-          <path d="m25.5 38.5 4.3 4.3 8-8.6" stroke="#9C6A10" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M13 5 24 27" stroke="#C8861E" stroke-width="7" stroke-linecap="round" />
+          <path d="M51 5 40 27" stroke="#C8861E" stroke-width="7" stroke-linecap="round" />
+          <circle cx="32" cy="38" r="19" fill="#F3C46B" />
+          <circle cx="32" cy="38" r="14" fill="none" stroke="#C8861E" stroke-width="2.5" />
+          <path
+            d="m25.5 38.5 4.3 4.3 8-8.6"
+            stroke="#9C6A10"
+            stroke-width="3.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
         </svg>
         <h1 class="results-header__title">Perfect score!</h1>
         <p class="perfect-badge">+50 bonus XP for a flawless round</p>
@@ -42,9 +48,17 @@
 
     <div class="breakdown">
       @for (q of s.questions; track q.questionId) {
-        <article class="breakdown-card" [class.breakdown-card--correct]="q.correct" [class.breakdown-card--wrong]="!q.correct">
+        <article
+          class="breakdown-card"
+          [class.breakdown-card--correct]="q.correct"
+          [class.breakdown-card--wrong]="!q.correct"
+        >
           <div class="breakdown-card__head">
-            <span class="indicator" [class.indicator--good]="q.correct" [class.indicator--bad]="!q.correct">
+            <span
+              class="indicator"
+              [class.indicator--good]="q.correct"
+              [class.indicator--bad]="!q.correct"
+            >
               {{ q.correct ? '✓' : '✗' }}
             </span>
             <span class="breakdown-card__num">Question {{ $index + 1 }}</span>
@@ -81,10 +95,22 @@
           <h2 class="recap-card__title">Keep chewing on it</h2>
         </header>
         @if (recap.snack; as snack) {
-          <app-rich-text class="recap-card__concept" [text]="snack.concept" />
-          <app-rich-text class="recap-card__metaphor" [text]="snack.metaphor" />
+          <app-rich-text
+            class="recap-card__concept"
+            [text]="snack.concept"
+            [keywords]="snack.keywords ?? []"
+            (keywordSelected)="openKeyword($event)"
+          />
+          <app-rich-text
+            class="recap-card__metaphor"
+            [text]="snack.metaphor"
+            [keywords]="snack.keywords ?? []"
+            (keywordSelected)="openKeyword($event)"
+          />
         } @else {
-          <p class="recap-card__concept">Revisit the {{ recap.subtopicName }} snack to reinforce the idea.</p>
+          <p class="recap-card__concept">
+            Revisit the {{ recap.subtopicName }} snack to reinforce the idea.
+          </p>
         }
       </article>
     }
@@ -96,4 +122,11 @@
       <button class="primary-btn" (click)="restart()">Start a new theme</button>
     </div>
   }
+
+  <!-- Exactly one definition card per page (FR-021). -->
+  <app-keyword-definition-card
+    [keyword]="activeKeyword()"
+    [anchor]="activeKeywordAnchor()"
+    (closed)="closeKeyword()"
+  />
 </section>

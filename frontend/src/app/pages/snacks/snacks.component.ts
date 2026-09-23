@@ -4,7 +4,7 @@ import { AppStateService } from '../../services/app-state.service';
 import { BatchPollingTimeoutError, BatchService } from '../../services/batch.service';
 import { SnackRetryService } from '../../services/snack-retry.service';
 import { ErrorService } from '../../services/error.service';
-import { Snack } from '../../models/snack.model';
+import { Snack, SnackKeyword } from '../../models/snack.model';
 import { Subtopic } from '../../models/theme.model';
 import {
   BatchItem,
@@ -14,11 +14,12 @@ import {
 } from '../../models/batch.model';
 import { Subject, takeUntil } from 'rxjs';
 import { RichTextComponent } from '../../components/rich-text/rich-text.component';
+import { KeywordDefinitionCardComponent } from '../../components/keyword-definition-card/keyword-definition-card.component';
 
 @Component({
   selector: 'app-snacks',
   standalone: true,
-  imports: [RichTextComponent],
+  imports: [RichTextComponent, KeywordDefinitionCardComponent],
   templateUrl: './snacks.component.html',
   styleUrl: './snacks.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -35,6 +36,9 @@ export class SnacksComponent implements OnDestroy {
   readonly loadingSubtopic = signal<string | null>(null);
   /** Per-target terminal error message shown after the automatic budget is exhausted (FR-005). */
   readonly terminalErrors = signal<Record<string, string>>({});
+  /** Feature 013: the single active keyword/anchor pair; exactly one card per page (FR-018/FR-021). */
+  readonly activeKeyword = signal<SnackKeyword | null>(null);
+  readonly activeKeywordAnchor = signal<HTMLElement | null>(null);
   private readonly destroy$ = new Subject<void>();
   /** Which batch currently owns each target; prevents stale polls from double-triggering (FR-007). */
   private readonly ownerBatchId = new Map<string, string>();
@@ -387,8 +391,7 @@ export class SnacksComponent implements OnDestroy {
 
   /** FR-017: the quiz targets the active snack's subtopic, never a stale/first one. */
   startQuiz(): void {
-    const subtopicId =
-      this.currentSnack()?.snack?.subtopicId ?? this.currentSnack()?.subtopicId;
+    const subtopicId = this.currentSnack()?.snack?.subtopicId ?? this.currentSnack()?.subtopicId;
     if (!subtopicId) {
       return;
     }
@@ -399,6 +402,18 @@ export class SnacksComponent implements OnDestroy {
     this.appState.selectedSubtopic.set(subtopic);
     this.loadingSubtopic.set(subtopicId);
     this.router.navigate(['/quiz']);
+  }
+
+  /** Feature 013: open the definition card for the activated term (replaces any previous one). */
+  openKeyword(event: { keyword: SnackKeyword; anchor: HTMLElement }): void {
+    this.activeKeyword.set(event.keyword);
+    this.activeKeywordAnchor.set(event.anchor);
+  }
+
+  /** Feature 013: clear the active keyword after any dismissal. */
+  closeKeyword(): void {
+    this.activeKeyword.set(null);
+    this.activeKeywordAnchor.set(null);
   }
 
   goBack(): void {

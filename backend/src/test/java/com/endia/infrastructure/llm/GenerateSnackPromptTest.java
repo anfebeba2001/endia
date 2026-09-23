@@ -74,6 +74,44 @@ class GenerateSnackPromptTest {
                 "prompt must still require 2-3 related concept names");
     }
 
+    // ---- Feature 013 (US1): the prompt must ask for a keywords array (FR-001..FR-005) ----
+
+    @Test
+    void promptRequestsKeywordsArrayWithTermAndDefinition() {
+        String prompt = templates.generateSnack("Photosynthesis", "Light reactions");
+        String lower = prompt.toLowerCase();
+
+        assertTrue(lower.contains("keywords"), "prompt must ask for a keywords array");
+        assertTrue(lower.contains("term"), "prompt must mention the keyword 'term' field");
+        assertTrue(lower.contains("definition"), "prompt must mention the keyword 'definition' field");
+        assertTrue(lower.contains("\"keywords\""),
+                "prompt must specify the exact \"keywords\" JSON key");
+    }
+
+    @Test
+    void promptLimitsDefinitionsToThreeWordsAndGuidesTwoToFive() {
+        String prompt = templates.generateSnack("Photosynthesis", "Light reactions");
+        String lower = prompt.toLowerCase();
+
+        assertTrue(lower.contains("3 words") || lower.contains("three words"),
+                "prompt must state the at-most-3-words definition limit");
+        assertTrue(lower.contains("2-5") || lower.contains("2–5"),
+                "prompt must state the 2-5 keyword guideline");
+    }
+
+    @Test
+    void promptRequiresTermsVerbatimInBodyAndPlainTextOnly() {
+        String prompt = templates.generateSnack("Photosynthesis", "Light reactions");
+        String lower = prompt.toLowerCase();
+
+        assertTrue(lower.contains("verbatim") || (lower.contains("appear") && lower.contains("body")),
+                "prompt must require each term to appear verbatim in the snack body text");
+        assertTrue(lower.contains("plain text"),
+                "prompt must require keyword text to be plain text only");
+        assertTrue(lower.contains("markup"),
+                "prompt must forbid markup in keyword text");
+    }
+
     @Test
     void promptSubstitutesThemeAndSubtopic() {
         String prompt = templates.generateSnack("Photosynthesis", "Light reactions");

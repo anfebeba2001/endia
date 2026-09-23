@@ -1,0 +1,107 @@
+// Feature 013 — keyword definition card. Fixed positioning anchored to the term control, clamped
+// to the viewport, with a bottom-sheet fallback on narrow screens so it never overflows
+// horizontally (FR-022, SC-005).
+//
+// Styling resolves entirely from the global ENDIA tokens (styles.scss): card white, warm hairline,
+// `--radius-md`, warm-tinted `--shadow-lg`. The term is tinted with the same `--keyword-ink` as the
+// highlight it was opened from, so the card visibly belongs to the term the learner tapped.
+
+:host {
+  display: contents;
+}
+
+.keyword-card {
+  position: fixed;
+  z-index: 1000;
+  width: max-content;
+  min-width: 200px;
+  max-width: min(280px, calc(100vw - 16px));
+  background: var(--surface-card);
+  color: var(--body);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  // Fade/settle in: also hides the single frame before the anchor position is measured, so the
+  // card never flashes at the wrong spot (no visible jump on open).
+  animation: keyword-card-in 0.14s ease-out both;
+}
+
+@keyframes keyword-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.keyword-card__body {
+  position: relative;
+  padding: 0.7rem 2rem 0.7rem 0.85rem;
+}
+
+.keyword-card__close {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.2rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.keyword-card__close:hover,
+.keyword-card__close:focus-visible {
+  background: var(--surface-soft);
+  color: var(--ink);
+}
+
+.keyword-card__close:focus-visible {
+  // keep the control round; the global :focus-visible rule would otherwise square it off
+  border-radius: 50%;
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.keyword-card__term {
+  margin: 0 0 0.2rem;
+  font: 700 0.9rem/1.3 var(--font-display);
+  letter-spacing: -0.01em;
+  color: var(--keyword-ink);
+  overflow-wrap: anywhere;
+}
+
+.keyword-card__definition {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--body);
+  overflow-wrap: anywhere;
+}
+
+// Narrow viewports: present as a bottom sheet spanning the width minus a small gutter, lifted
+// clear of the home indicator on notched devices.
+.keyword-card--sheet {
+  top: auto !important;
+  left: 8px !important;
+  right: 8px;
+  bottom: calc(8px + env(safe-area-inset-bottom));
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  border-radius: var(--radius-lg);
+}

@@ -28,6 +28,7 @@ const RICH_SNACK = {
   metaphor: 'Think of a leaf as a **solar-powered kitchen**.',
   whyItMatters: 'A common pitfall: plants build themselves from **air and light**.',
   related: ['Chlorophyll', 'Glucose'],
+  keywords: [],
 };
 
 const PLAIN_SNACK = {
@@ -38,6 +39,7 @@ const PLAIN_SNACK = {
   metaphor: 'An unclosed **important marker stays literal and does not swallow the rest.',
   whyItMatters: 'Plain text only, with no formatting markup at all.',
   related: ['Plain', 'Labels'],
+  keywords: [],
 };
 
 const VARIANT_SNACK = {
@@ -51,6 +53,7 @@ const VARIANT_SNACK = {
   metaphor: 'Metaphor **emphasized**.',
   whyItMatters: 'Why text.',
   related: ['One', 'Two'],
+  keywords: [],
 };
 
 const XSS_SNACK = {
@@ -62,6 +65,7 @@ const XSS_SNACK = {
   whyItMatters:
     '<a href="javascript:window.__xss=1">link</a> and <iframe></iframe> and <style>body{color:red}</style>',
   related: ['Plain', 'Labels'],
+  keywords: [],
 };
 
 /** Override the batch status route with a single READY snack carrying the given fields. */
@@ -153,7 +157,11 @@ test.describe('US2 — snack card renders bold, bullets and paragraphs', () => {
     await goToSnackCard(page);
 
     const concept = page.locator('.snack-card__concept');
-    await expect(concept.locator('strong')).toHaveText(['Photosynthesis', 'Light reactions', 'Calvin cycle']);
+    await expect(concept.locator('strong')).toHaveText([
+      'Photosynthesis',
+      'Light reactions',
+      'Calvin cycle',
+    ]);
     await expect(page.locator('.snack-card')).not.toContainText('**');
   });
 
@@ -235,12 +243,16 @@ test.describe('US2 — results recap renders rich formatting', () => {
 // ─── US3: sanitization on the snack card and the recap ───────────────────────
 
 test.describe('US3 — untrusted markup is neutralized', () => {
-  test('snack card executes nothing and injects no nodes, readable text preserved', async ({ page }) => {
+  test('snack card executes nothing and injects no nodes, readable text preserved', async ({
+    page,
+  }) => {
     await setupRichFixtures(page, XSS_SNACK);
     await goToSnackCard(page);
 
     // No script/handler executed.
-    expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
+    expect(
+      await page.evaluate(() => (window as unknown as { __xss?: number }).__xss),
+    ).toBeUndefined();
 
     // No injected elements from snack text.
     for (const selector of ['script', 'img', 'iframe', 'style', 'a']) {
@@ -258,7 +270,9 @@ test.describe('US3 — untrusted markup is neutralized', () => {
     await goToSnackCard(page);
     await completeQuizToResults(page);
 
-    expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
+    expect(
+      await page.evaluate(() => (window as unknown as { __xss?: number }).__xss),
+    ).toBeUndefined();
     for (const selector of ['script', 'img', 'iframe', 'style', 'a']) {
       await expect(page.locator(`.recap-card ${selector}`)).toHaveCount(0);
     }
@@ -269,7 +283,9 @@ test.describe('US3 — untrusted markup is neutralized', () => {
 // ─── US5: no-markup / legacy text renders cleanly ────────────────────────────
 
 test.describe('US5 — no-markup text is not mangled', () => {
-  test('plain field renders clean text with no empty <p>/<ul> or stray markers', async ({ page }) => {
+  test('plain field renders clean text with no empty <p>/<ul> or stray markers', async ({
+    page,
+  }) => {
     await setupRichFixtures(page, PLAIN_SNACK);
     await goToSnackCard(page);
 
