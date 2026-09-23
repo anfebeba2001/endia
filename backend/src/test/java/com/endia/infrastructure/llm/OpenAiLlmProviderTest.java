@@ -16,7 +16,9 @@ import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -108,8 +110,40 @@ class OpenAiLlmProviderTest {
     }
 
     @Test
-    void generateQuizParsesArray() throws Exception {
+    void generateSnackReturnsMarkupVerbatimWithoutStrippingOrEscaping() throws Exception {
+        // Feature 012 (FR-005/FR-006): the provider passes markup-bearing text through as-is.
+        String concept = "**Light reactions** convert light into chemical energy.\n\n"
+                + "Two stages:\n- **Capture** light.\n- **Fix** carbon.";
+        String metaphor = "A **solar kitchen**.";
+        String whyItMatters = "Without them, **no ATP** is produced.";
+
+        Map<String, Object> snack = new LinkedHashMap<>();
+        snack.put("concept", concept);
+        snack.put("metaphor", metaphor);
+        snack.put("whyItMatters", whyItMatters);
+        snack.put("related", List.of("Calvin cycle", "Chloroplast"));
+
+        String content = mapper.writeValueAsString(snack);
+        String envelope = mapper.writeValueAsString(
+                Map.of("choices", List.of(Map.of("message", Map.of("content", content)))));
         server.enqueue(new MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody(envelope));
+
+        LlmProvider.GeneratedSnack result = provider.generateSnack("Theme", "Subtopic");
+
+        assertEquals(concept, result.concept());
+        assertEquals(metaphor, result.metaphor());
+        assertEquals(whyItMatters, result.whyItMatters());
+        assertEquals(List.of("Calvin cycle", "Chloroplast"), result.related());
+        assertTrue(result.concept().contains("**"), "bold markers must survive");
+        assertTrue(result.concept().contains("\n"), "line breaks must survive");
+        assertTrue(!result.concept().contains("&ast;") && !result.concept().contains("&lt;"),
+                "markup must not be HTML-escaped");
+    }
+
+    @Test
+    void generateQuizParsesArray() throws Exception {        server.enqueue(new MockResponse()
                 .setHeader("Content-Type", "application/json")
                 .setBody("""
                         {"choices":[{"message":{"content":"[{\\"prompt\\":\\"Q1\\",\\"options\\":[\\"A\\",\\"B\\",\\"C\\",\\"D\\"],\\"correctIndex\\":2,\\"explanation\\":\\"E\\"}]"}}]}}

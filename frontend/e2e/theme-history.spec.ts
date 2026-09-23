@@ -204,3 +204,90 @@ test.describe('US4 — Keyboard accessibility', () => {
     await expect(page.locator('.history-subtopic__name').first()).toBeVisible();
   });
 });
+
+// Feature 012 — the read-only history view renders snack text through the same shared rich-text
+// renderer and the same whitelist/sanitization rules as the snack card and the recap
+// (FR-023, FR-024, SC-009).
+
+const RICH_THEMES: ThemeHistory[] = [
+  {
+    themeId: 'theme-rich',
+    prompt: 'Photosynthesis',
+    createdAt: '2026-09-11T19:52:00',
+    subtopics: [
+      {
+        id: 'sub-rich',
+        name: 'Light reactions',
+        snacks: [
+          {
+            id: 'snack-rich',
+            concept:
+              '**Chlorophyll** absorbs light.\n\nTwo stages:\n- **Capture** light.\n- **Fix** carbon.',
+            metaphor: 'A **solar kitchen**.',
+            whyItMatters: 'Prevents a **misconception**.',
+            related: ['ATP synthase', 'Electron transport'],
+          },
+        ],
+        quizQuestions: [],
+      },
+    ],
+  },
+];
+
+const XSS_THEMES: ThemeHistory[] = [
+  {
+    themeId: 'theme-xss',
+    prompt: 'Untrusted',
+    createdAt: '2026-09-11T19:52:00',
+    subtopics: [
+      {
+        id: 'sub-xss',
+        name: 'Payloads',
+        snacks: [
+          {
+            id: 'snack-xss',
+            concept: '<script>window.__xss=1</script>Safe history concept',
+            metaphor: '<img src=x onerror="window.__xss=1">History metaphor',
+            whyItMatters: '<iframe></iframe> and <style>body{color:red}</style>',
+            related: ['Plain'],
+          },
+        ],
+        quizQuestions: [],
+      },
+    ],
+  },
+];
+
+test.describe('US5 — rich formatting in the history view (feature 012)', () => {
+  test('renders bold, bullets and paragraphs in the expanded history detail', async ({ page }) => {
+    await setupThemesHistoryMock(page, RICH_THEMES);
+    await page.goto('/history');
+
+    const firstCard = page.locator('.history-card').first();
+    await firstCard.locator('.history-card__toggle').click();
+
+    const concept = firstCard.locator('.history-snack__concept');
+    await expect(concept.locator('strong')).toHaveText(['Chlorophyll', 'Capture', 'Fix']);
+    await expect(concept.locator('ul li')).toHaveCount(2);
+    await expect(concept.locator('p')).toHaveCount(2);
+    await expect(firstCard.locator('.history-snack')).not.toContainText('**');
+
+    // `related` stays plain labels (no rich-text interpretation).
+    await expect(firstCard.locator('.history-snack__related li')).toHaveCount(2);
+    await expect(firstCard.locator('.history-snack__related strong')).toHaveCount(0);
+  });
+
+  test('neutralizes untrusted markup in the history view', async ({ page }) => {
+    await setupThemesHistoryMock(page, XSS_THEMES);
+    await page.goto('/history');
+
+    const firstCard = page.locator('.history-card').first();
+    await firstCard.locator('.history-card__toggle').click();
+
+    expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
+    for (const selector of ['script', 'img', 'iframe', 'style', 'a']) {
+      await expect(firstCard.locator(`.history-snack ${selector}`)).toHaveCount(0);
+    }
+    await expect(firstCard.locator('.history-snack__concept')).toContainText('Safe history concept');
+  });
+});
