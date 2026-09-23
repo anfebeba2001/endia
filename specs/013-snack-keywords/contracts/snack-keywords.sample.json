@@ -1,0 +1,43 @@
+{
+  "_comment": "Example payload for snack-returning surfaces (013-snack-keywords). Every snack object gains a 'keywords' array of { term, definition } items; definitions are <=3 words. The shape of the existing fields is unchanged from 012. Injection payloads in keywords are shown only to illustrate that they are stored/returned verbatim as plain text and neutralized by the frontend renderer.",
+  "snacks": [
+    {
+      "id": "6f1c2a9e-1b2c-4d3e-8f90-0a1b2c3d4e5f",
+      "subtopicId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+      "subtopicName": "Photosynthesis",
+      "concept": "**Photosynthesis** is how green plants turn light into chemical energy.\n\nIt happens in two linked stages:\n- **Light reactions** capture energy from sunlight.\n- **Calvin cycle** fixes carbon dioxide into sugar.",
+      "metaphor": "Think of a leaf as a **solar-powered kitchen**: light is the stove, carbon dioxide is the flour, and sugar is the cake.",
+      "whyItMatters": "Nearly every food chain starts here.\n\nA common pitfall is thinking plants eat soil — they mostly build themselves from **air and light**.",
+      "related": ["Chlorophyll", "Cellular Respiration", "Glucose"],
+      "keywords": [
+        { "term": "Photosynthesis", "definition": "light into sugar" },
+        { "term": "Calvin cycle", "definition": "carbon fixation stage" },
+        { "term": "Chlorophyll", "definition": "green light pigment" }
+      ]
+    },
+    {
+      "id": "11111111-2222-3333-4444-555555555555",
+      "subtopicId": "66666666-7777-8888-9999-000000000000",
+      "subtopicName": "Untrusted content (safety illustration)",
+      "concept": "Safe text with a payload term: <script>alert('xss')</script> and a matching word.",
+      "metaphor": "A keyword whose term does not appear in the body is not highlighted anywhere.",
+      "whyItMatters": "Keyword markup such as <iframe>, <style>, and inline styles is neutralized while the readable text is preserved.",
+      "related": ["Plain", "Labels", "Only"],
+      "keywords": [
+        { "term": "payload", "definition": "<script>alert(1)</script>" },
+        { "term": "does-not-appear", "definition": "never highlighted" },
+        { "term": "markup", "definition": "<img src=x onerror=alert(1)>" }
+      ]
+    },
+    {
+      "id": "22222222-3333-4444-5555-666666666666",
+      "subtopicId": "77777777-8888-9999-0000-111111111111",
+      "subtopicName": "Legacy snack (pre-feature)",
+      "concept": "A snack stored before this feature has no keyword data.",
+      "metaphor": "It loads with an empty keyword list and renders exactly as before.",
+      "whyItMatters": "No highlight, no card affordance, no error, no layout artifact.",
+      "related": ["Legacy", "Compatible"],
+      "keywords": []
+    }
+  ]
+}
