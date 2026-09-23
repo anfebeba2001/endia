@@ -9,21 +9,21 @@
   color-scheme: light;
 
   /* ── Palette ──────────────────────────────────────────────────── */
-  --canvas: #f4f2eb;          /* warm paper */
-  --surface-card: #fffdf8;    /* menu-card white */
-  --surface-soft: #eeeae0;    /* inset / quiet plates */
+  --canvas: #f4f2eb; /* warm paper */
+  --surface-card: #fffdf8; /* menu-card white */
+  --surface-soft: #eeeae0; /* inset / quiet plates */
   --surface-header: rgba(244, 242, 235, 0.88); /* sticky top-bar surface (translucent paper) */
-  --ink: #221d16;             /* near-black text (warm) */
-  --body: #4b443a;            /* body text */
-  --muted: #6e675c;           /* secondary text (AA on canvas) */
-  --hairline: #e4dfd2;        /* soft borders */
+  --ink: #221d16; /* near-black text (warm) */
+  --body: #4b443a; /* body text */
+  --muted: #6e675c; /* secondary text (AA on canvas) */
+  --hairline: #e4dfd2; /* soft borders */
   --hairline-strong: #cfc8b8; /* stronger borders */
 
-  --accent: #d9482e;              /* tomato — the one brand accent */
-  --accent-deep: #b23a22;         /* tomato for text / links (AA) */
-  --accent-soft: #f9e3da;         /* blush tint for chips/washes */
-  --accent-ink: #93280f;          /* tomato for small text (AA+) */
-  --accent-btn: #b23a22;          /* solid tomato button fill (white text, AA) */
+  --accent: #d9482e; /* tomato — the one brand accent */
+  --accent-deep: #b23a22; /* tomato for text / links (AA) */
+  --accent-soft: #f9e3da; /* blush tint for chips/washes */
+  --accent-ink: #93280f; /* tomato for small text (AA+) */
+  --accent-btn: #b23a22; /* solid tomato button fill (white text, AA) */
 
   /* semantic (fit the warm family) */
   --success: #2e8b57;
@@ -35,13 +35,19 @@
   --gold-soft: #f7e9c8;
   --gold-ink: #7a4e0d;
 
+  /* Feature 013 — highlighted key terms. An ochre reading highlight from the warm family,
+     deliberately distinct from the tomato accent (links / chips) and from body text; ~6.7:1 on
+     the card surface and ~6.1:1 on the canvas (WCAG AA for text, with margin). */
+  --keyword-ink: #8a4a0e;
+  --keyword-ink-hover: #6b3608;
+
   /* ── Type ─────────────────────────────────────────────────────── */
-  --font-display: 'Schibsted Grotesk', 'Figtree', system-ui, -apple-system,
-    'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --font-body: 'Figtree', system-ui, -apple-system, 'Segoe UI', Roboto,
-    Helvetica, Arial, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas,
-    monospace;
+  --font-display:
+    'Schibsted Grotesk', 'Figtree', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+  --font-body:
+    'Figtree', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
   /* ── Shape & elevation ─────────────────────────────────────────── */
   --radius-sm: 6px;
@@ -68,7 +74,7 @@
    Same custom properties as :root, re-derived for a dark canvas.
    Applied by setting data-theme="dark" on <html>.
    ══════════════════════════════════════════════════════════════════ */
-[data-theme="dark"] {
+[data-theme='dark'] {
   color-scheme: dark;
 
   /* ── Palette ──────────────────────────────────────────────────── */
@@ -86,7 +92,7 @@
   --accent-deep: #ff8a66;
   --accent-soft: #3c241c;
   --accent-ink: #ffb49c;
-  --accent-btn: #c7401f;          /* solid tomato button fill — stays deep in dark so white text holds AA */
+  --accent-btn: #c7401f; /* solid tomato button fill — stays deep in dark so white text holds AA */
 
   /* semantic (fit the warm family) */
   --success: #6fce9e;
@@ -97,6 +103,11 @@
   --gold: #e6b45a;
   --gold-soft: #3a2f16;
   --gold-ink: #f2d9a0;
+
+  /* Feature 013 — highlighted key terms on the dark canvas: a golden highlight, ~7.9:1 on the
+     card surface (WCAG AA+), clearly distinct from both body and ink text. */
+  --keyword-ink: #f0b95e;
+  --keyword-ink-hover: #ffd27a;
 
   /* darker warm shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
@@ -565,7 +576,7 @@ app-results {
    light palette or used as light fills, so nothing reads as the wrong
    light-on-light / dark-on-dark pairing under data-theme="dark".
    ══════════════════════════════════════════════════════════════════ */
-[data-theme="dark"] {
+[data-theme='dark'] {
   .error-banner {
     color: var(--error);
     border-color: rgba(255, 138, 128, 0.4);
