@@ -42,10 +42,45 @@
 - [ ] If both primary and alternate providers fail, a meaningful error is returned (consistent with Task 5 surface behaviour).
 - [ ] Manual test simulates a primary-provider SERVICE_UNAVAILABLE and confirms the alternate provider is used and the flow still succeeds.
 
+### Task 8: Colored keywords with click-to-show short definition cards
+
+- Status: no iniciado
+- Ready: yes
+- Sources: item 12
+- Description: Have the snack output identify key terms with very short definitions (max 3 words each), render those terms in a distinct color, and show a short definition card when the user clicks a term.
+
+**Acceptance criteria:**
+- [ ] The snack prompt/contract returns, per snack, a set of key terms each with a definition of at most 3 words (e.g. a `keywords: [{ term, definition }]` field exposed through the snack API response).
+- [ ] Each key term that appears in the snack text is rendered in a color distinct from the surrounding body text.
+- [ ] Clicking/tapping a highlighted key term opens a short card/popover that displays that term's definition, and the definition never exceeds 3 words.
+- [ ] The definition card can be dismissed (click outside, close control, or Escape) without navigating away from the snack.
+- [ ] Terms not present in the rendered text are not highlighted, and a snack with no/empty keywords still renders normally without errors.
+- [ ] The highlight and definition card work on both desktop and mobile widths.
+
+### Task 9: "Generate snack" from a keyword definition into the main topics backbone (no quiz)
+
+- Status: no iniciado
+- Ready: yes
+- Sources: item 12
+- Description: Add a "Generate snack" button on the keyword definition card that creates a "meaning snack" for that keyword and adds it to the main topics backbone, visually distinct from normal snacks and without any quiz test.
+
+**Acceptance criteria:**
+- [ ] The keyword definition card shows a "Generate snack" button.
+- [ ] Clicking "Generate snack" creates a "meaning snack" derived from that keyword definition and adds it to the main topics backbone.
+- [ ] While generating, the UI shows a loading/in-progress state; on failure a meaningful error is shown and no broken/empty entry is added to the backbone.
+- [ ] The meaning snack is persisted (backend) and remains present in the main topics backbone after a page reload/new session.
+- [ ] The meaning snack is visually distinct from regular snacks (different color/badge) in the main topics backbone.
+- [ ] The meaning snack has no quiz test: no quiz is generated for it and no quiz entry/action is offered for it, unlike the regular main snacks.
+- [ ] Regular snacks and the existing snack/quiz flow are unaffected (no regression).
+
 ## Current status
 
 - Task 3: Ready (awaiting implementation)
 - Task 4: Ready (awaiting implementation)
 - Task 6: Ready (awaiting implementation)
+- Task 8: Ready (awaiting implementation)
+- Task 9: Ready (awaiting implementation)
 
-12. Modify the prompt of the snacks to use bold and render it for important words and sentences, break the long paragraphs into bulletpoints and shorter paragrapsh
+12. Modify the prompt of the snacks to use bold and render it for important words and sentences, break the long paragraphs into bulletpoints and shorter paragrapsh, it is also needed that the key words are with a different color, so when the user clicks them, it shows a short card with definition of the word (max 3 words componning this keys meaning), also, this key meanings are going to have a "generate snack "button, when clicked, it adds a "meaning snack" into the main topics backbone, it has to have a different color and it does not have a quiz test like the other main snacks 
+
+
