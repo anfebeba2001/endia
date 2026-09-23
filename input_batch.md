@@ -42,14 +42,71 @@
 - [ ] If both primary and alternate providers fail, a meaningful error is returned (consistent with Task 5 surface behaviour).
 - [ ] Manual test simulates a primary-provider SERVICE_UNAVAILABLE and confirms the alternate provider is used and the flow still succeeds.
 
+### Task 10: Expand keyword meaning limit from 3 to 20 words
+
+- Status: no iniciado
+- Ready: yes
+- Sources: item 13
+- Description: Raise the keyword-definition (meaning) length cap from at most 3 words to at most 20 words across generation, normalization, and documentation, so keyword meanings can be richer without changing snack behavior.
+
+**Acceptance criteria:**
+- [ ] `SnackService.normalizeKeywords` caps keyword definitions at 20 whitespace-separated tokens (no longer 3); tests that asserted the 3-word cap are updated to the 20-word rule.
+- [ ] `MeaningSnackService.normalizeDefinition` caps the source definition at 20 tokens (no longer 3), consistent with `SnackService`.
+- [ ] The snack-generation prompt (`backend/src/main/resources/prompts/generate-snack.md`) instructs the model to produce keyword definitions of at most 20 words (example JSON and the explicit rule updated), so definitions are not pre-shortened to 3 words.
+- [ ] Comments/javadoc stating "at most 3 words" are updated to "at most 20 words" (`SnackKeyword`, `SnackKeywordDto`, frontend `snack.model.ts`).
+- [ ] A generated definition longer than 3 words (up to 20) survives generation → API → display without being truncated to 3 words.
+- [ ] A definition longer than 20 words is still safely capped at 20 tokens (no unbounded text persisted or returned).
+- [ ] The definition card and highlighted-keyword rendering stay readable with up-to-20-word definitions: no horizontal overflow, no clipping, and feature 013/014 behavior is not regressed.
+- [ ] Tests cover the boundary (19, 20, 21 words) and the existing backend/frontend suites pass.
+
+### Task 11: Custom keyword "Define" from a text selection with a 2-second trigger
+
+- Status: no iniciado
+- Ready: yes
+- Sources: item 13
+- Description: Let the user select words in the snack reading content; after the selection is held for 2 seconds a "Define" option appears; activating it generates the meaning for the selected term and shows it in the definition card.
+
+**Acceptance criteria:**
+- [ ] Selecting text (one or more words) inside a snack's reading content starts a 2-second timer; only after the selection has been held for ~2 seconds does a clearly labeled "Define" affordance appear for that selection.
+- [ ] If the selection changes or is cleared before 2 seconds elapse, no "Define" affordance appears (the timer is cancelled).
+- [ ] Activating "Define" sends the selected term to the backend, which returns a generated meaning/definition for that term via the externalized, provider-agnostic LLM flow (no provider-specific logic in services).
+- [ ] While the meaning is generating, a loading/in-progress state is shown, and rapid repeated activation starts at most one request.
+- [ ] On success, the definition card opens for the selected term showing the generated meaning, rendered as escaped text only (no `[innerHTML]`, no `DomSanitizer`), preserving the feature 012/013 security model.
+- [ ] On failure, a meaningful user-safe error is shown and nothing broken/empty/placeholder is added.
+- [ ] The selected term is normalized (trimmed, bounded word count) and blank or oversized selections are rejected with a meaningful error.
+- [ ] The affordance is reachable via pointer text selection and via programmatic/keyboard selection (`document.getSelection()`), without breaking existing highlighted-keyword clicks or the single-definition-card rule.
+- [ ] Non-regression: existing keyword highlight/definition-card and snack reading flows are unchanged and the existing E2E suites pass.
+
+### Task 12: "Create snack" from a custom keyword's generated meaning
+
+- Status: no iniciado
+- Ready: yes
+- Sources: item 13
+- Description: After a custom selected keyword's meaning has been generated and shown, offer a "Create snack" action that turns that term + meaning into a meaning snack in the main topics backbone, reusing the feature-014 flow.
+
+**Acceptance criteria:**
+- [ ] After a custom keyword's meaning is generated and displayed, the definition card offers a "Create snack" action for that keyword (reusing/relabeling the feature-014 "Generate snack" action).
+- [ ] Activating it generates a meaning snack derived from the custom term + generated meaning and adds it to the main topics backbone via the existing feature-014 persistence/retrieval path.
+- [ ] The resulting snack is quiz-free and visually distinct, per feature 014 (no quiz is generated, prefetched, stored, or offered).
+- [ ] While generating, a loading/in-progress state is shown; repeated/rapid activation creates at most one snack and no duplicate entry for the same (subtopic, term).
+- [ ] On failure, a meaningful user-safe error is shown and nothing broken/empty/placeholder is added.
+- [ ] The custom keyword's meaning snack survives a page reload and a new session for the same theme, consistent with feature 014 persistence.
+- [ ] The "Create snack" action is offered only when a valid generated meaning for the selected term exists (not before "Define" completes).
+- [ ] Non-regression: regular snack generation and existing meaning-snack generation from LLM-provided keywords behave unchanged, and the existing E2E suites pass.
+
 ## Current status
 
 - Task 3: Ready (awaiting implementation)
 - Task 4: Ready (awaiting implementation)
 - Task 6: Ready (awaiting implementation)
+- Task 10: Ready (awaiting implementation)
+- Task 11: Ready (awaiting implementation)
+- Task 12: Ready (awaiting implementation)
 
 _Completed: Task 9 — "Generate snack" from a keyword definition into the main topics backbone (no quiz) → feature `014-meaning-snacks` (merged to main)._
 
-12. Modify the prompt of the snacks to use bold and render it for important words and sentences, break the long paragraphs into bulletpoints and shorter paragrapsh, it is also needed that the key words are with a different color, so when the user clicks them, it shows a short card with definition of the word (max 3 words componning this keys meaning), also, this key meanings are going to have a "generate snack "button, when clicked, it adds a "meaning snack" into the main topics backbone, it has to have a different color and it does not have a quiz test like the other main snacks 
+_item 13 grouped into Tasks 10–12 (follow-up enhancement to feature 014); awaiting user approval before item 13 is removed._
+
+13. expand the meaning from key word from 3 to 20 max words, also let's generate custom key words, when an user select words , after 2 seconds it shall appear the option "Define" and then generate the meaning and then again the option of create a snack for that key word
 
 
