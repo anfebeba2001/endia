@@ -79,13 +79,13 @@
               </div>
 
               <h2 class="snack-card__concept-title">Concept</h2>
-              <p class="snack-card__concept">{{ snack.concept }}</p>
+              <app-rich-text class="snack-card__concept" [text]="snack.concept" />
 
               <h2 class="snack-card__concept-title">Metaphor</h2>
-              <p class="snack-card__metaphor">{{ snack.metaphor }}</p>
+              <app-rich-text class="snack-card__metaphor" [text]="snack.metaphor" />
 
               <h2 class="snack-card__concept-title">Why it matters</h2>
-              <p class="snack-card__why">{{ snack.whyItMatters }}</p>
+              <app-rich-text class="snack-card__why" [text]="snack.whyItMatters" />
 
               @if (snack.related.length) {
                 <div class="snack-card__related">

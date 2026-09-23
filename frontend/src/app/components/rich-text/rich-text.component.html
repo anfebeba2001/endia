@@ -1,0 +1,49 @@
+<!--
+  SECURITY BOUNDARY (feature 012): this template intentionally contains NO [innerHTML] and NO
+  DomSanitizer. It renders the parsed AST with plain Angular bindings, so the only elements it can
+  ever produce are <p>, <ul>, <li>, <strong> and <br>. Every other character (including raw HTML,
+  <script>, event handlers and inline styles) flows through interpolation as an inert, escaped text
+  node (FR-015..FR-019).
+-->
+@for (block of blocks(); track $index) {
+  @switch (block.kind) {
+    @case ('list') {
+      <ul class="rich-text__list">
+        @for (item of block.items; track $index) {
+          <li class="rich-text__item">
+            @for (node of item; track $index) {
+              @switch (node.kind) {
+                @case ('bold') {
+                  <strong class="rich-text__strong">{{ node.text }}</strong>
+                }
+                @case ('break') {
+                  <br />
+                }
+                @default {
+                  {{ node.text }}
+                }
+              }
+            }
+          </li>
+        }
+      </ul>
+    }
+    @default {
+      <p class="rich-text__p">
+        @for (node of block.nodes; track $index) {
+          @switch (node.kind) {
+            @case ('bold') {
+              <strong class="rich-text__strong">{{ node.text }}</strong>
+            }
+            @case ('break') {
+              <br />
+            }
+            @default {
+              {{ node.text }}
+            }
+          }
+        }
+      </p>
+    }
+  }
+}

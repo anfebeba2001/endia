@@ -59,9 +59,9 @@
                       }
                       @for (snack of subtopic.snacks; track snack.id) {
                         <article class="history-snack">
-                          <p class="history-snack__concept">{{ snack.concept }}</p>
-                          <p class="history-snack__metaphor">{{ snack.metaphor }}</p>
-                          <p class="history-snack__why">{{ snack.whyItMatters }}</p>
+                          <app-rich-text class="history-snack__concept" [text]="snack.concept" />
+                          <app-rich-text class="history-snack__metaphor" [text]="snack.metaphor" />
+                          <app-rich-text class="history-snack__why" [text]="snack.whyItMatters" />
                           @if (snack.related.length > 0) {
                             <ul class="history-snack__related">
                               @for (rel of snack.related; track $index) {
