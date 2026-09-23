@@ -93,6 +93,105 @@
   overflow-wrap: anywhere;
 }
 
+/* Feature 014 — "Generate snack" action (idle / loading / done) and inline error. */
+.keyword-card__action {
+  margin-top: 0.65rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  /* Reserve the tallest state so idle → loading → done never nudges the card height. */
+  min-height: 2.5rem;
+}
+
+.keyword-card__generate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  /* 40px min target: comfortably tappable inside the narrow popover without bloating it. */
+  min-height: 2.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--accent-btn);
+  color: #fff;
+  font: 600 0.72rem/1.3 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background 0.15s ease,
+    transform 0.12s ease,
+    box-shadow 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: #9c311c;
+    box-shadow: var(--shadow-accent);
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
+  }
+
+  &:disabled,
+  &[aria-disabled='true'] {
+    cursor: default;
+  }
+
+  /* Terminal success state — a deliberate, positive "done", not a greyed-out broken control. */
+  &--done {
+    background: var(--success-soft);
+    border-color: var(--success-deep);
+    color: var(--success-deep);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+.keyword-card__action-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.keyword-card__action .spinner {
+  width: 20px;
+  height: 20px;
+
+  &::before {
+    width: 7px;
+    height: 7px;
+    margin: -3.5px 0 0 -3.5px;
+  }
+
+  &::after {
+    width: 5px;
+    height: 5px;
+    top: 3px;
+    right: 4px;
+  }
+}
+
+.keyword-card__error {
+  margin: 0.55rem 0 0;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--error);
+  border-radius: var(--radius-sm);
+  background: var(--error-soft);
+  color: var(--error);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 // Narrow viewports: present as a bottom sheet spanning the width minus a small gutter, lifted
 // clear of the home indicator on notched devices.
 .keyword-card--sheet {

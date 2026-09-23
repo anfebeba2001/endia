@@ -63,19 +63,19 @@
                             class="history-snack__concept"
                             [text]="snack.concept"
                             [keywords]="snack.keywords ?? []"
-                            (keywordSelected)="openKeyword($event)"
+                            (keywordSelected)="openKeyword($event, theme.themeId, subtopic.id)"
                           />
                           <app-rich-text
                             class="history-snack__metaphor"
                             [text]="snack.metaphor"
                             [keywords]="snack.keywords ?? []"
-                            (keywordSelected)="openKeyword($event)"
+                            (keywordSelected)="openKeyword($event, theme.themeId, subtopic.id)"
                           />
                           <app-rich-text
                             class="history-snack__why"
                             [text]="snack.whyItMatters"
                             [keywords]="snack.keywords ?? []"
-                            (keywordSelected)="openKeyword($event)"
+                            (keywordSelected)="openKeyword($event, theme.themeId, subtopic.id)"
                           />
                           @if (snack.related.length > 0) {
                             <ul class="history-snack__related">
@@ -115,6 +115,10 @@
   <app-keyword-definition-card
     [keyword]="activeKeyword()"
     [anchor]="activeKeywordAnchor()"
+    [generateEnabled]="generateEnabled()"
+    [generateState]="generateState()"
+    [generateError]="generateError()"
+    (generateRequested)="onGenerateRequested($event)"
     (closed)="closeKeyword()"
   />
 </section>

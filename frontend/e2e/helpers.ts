@@ -219,6 +219,141 @@ export async function setupAllMocks(page: Page) {
   await setupQuizGenerateMock(page);
   await setupQuizAnswerMock(page);
   await setupQuizSummaryMock(page);
+  // Feature 014: the snacks page now issues GET /api/meaning-snacks on load; a default empty
+  // listing keeps every existing spec deterministic (FR-020/SC-009).
+  await setupMeaningSnacksMock(page);
+}
+
+// ─── Feature 014 — meaning snacks ────────────────────────────────────────────
+
+export interface MeaningSnackFixture {
+  id: string;
+  kind: string;
+  themeId: string;
+  sourceSubtopicId: string;
+  sourceSubtopicName: string;
+  sourceTerm: string;
+  sourceDefinition: string;
+  concept: string;
+  metaphor: string;
+  whyItMatters: string;
+  related: string[];
+  createdAt: string;
+}
+
+/** A route reply: HTTP status, JSON body and/or a response delay. */
+export interface MockReply {
+  status?: number;
+  body?: unknown;
+  delayMs?: number;
+}
+
+export interface MeaningSnacksMockOptions {
+  /**
+   * GET /api/meaning-snacks?themeId= reply. An array is wrapped as `{themeId, meaningSnacks}`;
+   * a function receives the themeId and returns a {@link MockReply}.
+   */
+  list?: MeaningSnackFixture[] | MockReply | ((themeId: string) => MockReply);
+  /**
+   * POST /api/meaning-snacks/generate reply. A function receives the parsed request body and
+   * returns a {@link MockReply}; the default echoes a generated meaning snack.
+   */
+  generate?: MockReply | ((body: MeaningGenerateBody) => MockReply);
+}
+
+export interface MeaningGenerateBody {
+  themeId: string;
+  subtopicId: string;
+  term: string;
+  definition: string;
+}
+
+/** Build a meaning-snack fixture mirroring the API shape (feature 014). */
+export function meaningSnack(
+  overrides: Partial<MeaningSnackFixture> & { sourceTerm: string },
+): MeaningSnackFixture {
+  return {
+    id: `meaning-${overrides.sourceTerm}`,
+    kind: 'MEANING',
+    themeId: THEME_ID,
+    sourceSubtopicId: 'sub-001',
+    sourceSubtopicName: 'Light reactions',
+    sourceDefinition: 'light to sugar',
+    concept: '**Photosynthesis** converts light into chemical energy.',
+    metaphor: 'Think of a leaf as a **solar kitchen**.',
+    whyItMatters: 'Nearly every food chain starts here.',
+    related: ['Chlorophyll', 'Glucose'],
+    createdAt: '2026-09-23T12:00:00',
+    ...overrides,
+  };
+}
+
+function defaultGenerateReply(body: MeaningGenerateBody): MockReply {
+  return {
+    status: 200,
+    body: {
+      alreadyExisted: false,
+      meaningSnack: meaningSnack({
+        sourceSubtopicId: body.subtopicId,
+        sourceTerm: body.term,
+        sourceDefinition: body.definition,
+      }),
+    },
+  };
+}
+
+async function fulfillReply(route: Route, reply: MockReply): Promise<void> {
+  if (reply.delayMs) {
+    await new Promise((r) => setTimeout(r, reply.delayMs));
+  }
+  await route.fulfill({
+    status: reply.status ?? 200,
+    contentType: 'application/json',
+    body: JSON.stringify(reply.body ?? {}),
+  });
+}
+
+/**
+ * Mock the meaning-snack endpoints (feature 014): `GET /api/meaning-snacks?themeId=` (the
+ * theme-scoped listing read by the snacks page) and `POST /api/meaning-snacks/generate`.
+ * Register it after `setupAllMocks` to override the default empty listing.
+ */
+export async function setupMeaningSnacksMock(
+  page: Page,
+  opts?: MeaningSnacksMockOptions,
+): Promise<void> {
+  await page.route('**/api/meaning-snacks**', async (route: Route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+
+    if (request.method() === 'GET') {
+      const themeId = url.searchParams.get('themeId') ?? THEME_ID;
+      let reply: MockReply;
+      if (typeof opts?.list === 'function') {
+        reply = opts.list(themeId);
+      } else if (Array.isArray(opts?.list)) {
+        reply = { status: 200, body: { themeId, meaningSnacks: opts.list } };
+      } else if (opts?.list) {
+        reply = opts.list;
+      } else {
+        reply = { status: 200, body: { themeId, meaningSnacks: [] } };
+      }
+      await fulfillReply(route, reply);
+      return;
+    }
+
+    if (request.method() === 'POST' && url.pathname.endsWith('/generate')) {
+      const body = JSON.parse(request.postData() || '{}') as MeaningGenerateBody;
+      const reply =
+        typeof opts?.generate === 'function'
+          ? opts.generate(body)
+          : (opts?.generate ?? defaultGenerateReply(body));
+      await fulfillReply(route, reply);
+      return;
+    }
+
+    await route.continue();
+  });
 }
 
 /** Build a snack object for a subtopic id (mirrors backend snack shape). */

@@ -38,6 +38,21 @@ export class KeywordDefinitionCardComponent implements OnChanges {
   /** The term control that opened the card; focus returns here on close. */
   readonly anchor = input<HTMLElement | null>(null);
 
+  /**
+   * Feature 014: whether the "Generate snack" action is available. Hosts that cannot resolve a
+   * theme + source subtopic pass `false` (FR-001, plan.md Open Decisions #1).
+   */
+  readonly generateEnabled = input<boolean>(true);
+
+  /** Feature 014: the generation action state — `idle`, `loading`, or `done` (FR-003/FR-005/FR-006). */
+  readonly generateState = input<'idle' | 'loading' | 'done'>('idle');
+
+  /** Feature 014: a user-safe error to show inline, or null (FR-004). */
+  readonly generateError = input<string | null>(null);
+
+  /** Feature 014: emitted when the user activates "Generate snack" (the host owns the request). */
+  readonly generateRequested = output<SnackKeyword>();
+
   /** Emitted on any dismissal so the page can clear its active keyword. */
   readonly closed = output<void>();
 
@@ -84,6 +99,18 @@ export class KeywordDefinitionCardComponent implements OnChanges {
     if (anchor && typeof anchor.focus === 'function') {
       anchor.focus();
     }
+  }
+
+  /**
+   * Feature 014: emit the generation request for the current keyword. Guarded so a rapid second
+   * activation while loading (or after done) starts no duplicate generation (FR-005/FR-006).
+   */
+  requestGenerate(): void {
+    const keyword = this.keyword();
+    if (!keyword || !this.generateEnabled() || this.generateState() !== 'idle') {
+      return;
+    }
+    this.generateRequested.emit(keyword);
   }
 
   private openCard(): void {

@@ -6,6 +6,7 @@ import com.endia.domain.exception.QuizAlreadyAnsweredException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
@@ -38,6 +39,17 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse("VALIDATION_ERROR", "Invalid value for parameter: " + ex.getName(), ex.getName(), null));
+    }
+
+    /**
+     * A required request parameter is absent (e.g. {@code GET /api/meaning-snacks} without
+     * {@code themeId}). Mapped to the same 400 {@code VALIDATION_ERROR} shape the contract documents
+     * for an invalid/missing parameter, instead of falling through to the generic 500 handler.
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingParameter(MissingServletRequestParameterException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse("VALIDATION_ERROR", "Invalid value for parameter: " + ex.getParameterName(), ex.getParameterName(), null));
     }
 
     @ExceptionHandler(QuizAlreadyAnsweredException.class)

@@ -1,8 +1,10 @@
 import { Injectable, signal } from '@angular/core';
 import { ThemeSuggestResponse, Subtopic } from '../models/theme.model';
 import { Snack } from '../models/snack.model';
+import { MeaningSnack } from '../models/meaning-snack.model';
 import { QuizQuestion } from '../models/quiz.model';
 import { BatchStatusResponse } from '../models/batch.model';
+import { MeaningSnackService } from './meaning-snack.service';
 
 /**
  * Shares state between the E2E flow pages (home -> subtopics -> snacks -> quiz -> results).
@@ -12,6 +14,8 @@ export class AppStateService {
   readonly theme = signal<ThemeSuggestResponse | null>(null);
   readonly subtopics = signal<Subtopic[]>([]);
   readonly snacks = signal<Snack[]>([]);
+  /** Feature 014: in-memory cache of meaning snacks (the backend listing is the source of truth). */
+  readonly meaningSnacks = signal<MeaningSnack[]>([]);
   readonly selectedSubtopic = signal<Subtopic | null>(null);
   readonly quizQuestions = signal<QuizQuestion[]>([]);
   readonly quizSubTopicId = signal<string | null>(null);
@@ -22,6 +26,8 @@ export class AppStateService {
   readonly quizPrefetched = signal(false);
   /** Prefetched quiz questions keyed by subtopicId (FR-003/SC-002). */
   readonly quizPrefetchBySubtopic = signal<Record<string, QuizQuestion[]>>({});
+
+  constructor(private meaningSnackService: MeaningSnackService) {}
 
   setTheme(theme: ThemeSuggestResponse): void {
     this.theme.set(theme);
@@ -76,6 +82,7 @@ export class AppStateService {
     this.theme.set(null);
     this.subtopics.set([]);
     this.snacks.set([]);
+    this.meaningSnacks.set([]);
     this.selectedSubtopic.set(null);
     this.quizQuestions.set([]);
     this.quizSubTopicId.set(null);
@@ -83,5 +90,7 @@ export class AppStateService {
     this.currentSnackIndex.set(0);
     this.quizPrefetched.set(false);
     this.quizPrefetchBySubtopic.set({});
+    // Feature 014: drop accumulated generated-key state so it does not leak across themes.
+    this.meaningSnackService.reset();
   }
 }

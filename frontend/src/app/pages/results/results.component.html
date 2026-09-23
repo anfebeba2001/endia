@@ -127,6 +127,10 @@
   <app-keyword-definition-card
     [keyword]="activeKeyword()"
     [anchor]="activeKeywordAnchor()"
+    [generateEnabled]="generateEnabled()"
+    [generateState]="generateState()"
+    [generateError]="generateError()"
+    (generateRequested)="onGenerateRequested($event)"
     (closed)="closeKeyword()"
   />
 </section>
