@@ -4,17 +4,24 @@ import { AppStateService } from '../../services/app-state.service';
 import { BatchPollingTimeoutError, BatchService } from '../../services/batch.service';
 import { SnackRetryService } from '../../services/snack-retry.service';
 import { ErrorService } from '../../services/error.service';
+import { MeaningSnackService } from '../../services/meaning-snack.service';
 import { Snack, SnackKeyword } from '../../models/snack.model';
+import { MeaningSnack } from '../../models/meaning-snack.model';
 import { Subtopic } from '../../models/theme.model';
 import {
+  BackboneEntry,
   BatchItem,
   BatchStatusResponse,
+  MeaningEntry,
+  RegularEntry,
   SnackGenerationPhase,
   phaseMessage as phaseToMessage,
 } from '../../models/batch.model';
 import { Subject, takeUntil } from 'rxjs';
 import { RichTextComponent } from '../../components/rich-text/rich-text.component';
 import { KeywordDefinitionCardComponent } from '../../components/keyword-definition-card/keyword-definition-card.component';
+
+type GenerateState = 'idle' | 'loading' | 'done';
 
 @Component({
   selector: 'app-snacks',
@@ -25,7 +32,17 @@ import { KeywordDefinitionCardComponent } from '../../components/keyword-definit
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SnacksComponent implements OnDestroy {
-  readonly items = signal<BatchItem[]>([]);
+  /**
+   * Regular batch items only. Every existing batch/poll/retry/progressive-delivery path operates
+   * exclusively on this signal; the meaning-snack interleave is a pure projection over it.
+   */
+  readonly batchItems = signal<BatchItem[]>([]);
+  /** Feature 014: persisted meaning snacks for the theme (backend listing is the source of truth). */
+  readonly meaningSnacks = signal<MeaningSnack[]>([]);
+  /** Feature 014: per-keyword generation state for the definition card. */
+  readonly generateStates = signal<Record<string, GenerateState>>({});
+  /** Feature 014: user-safe inline error for the last failed generation (FR-004). */
+  readonly generateError = signal<string | null>(null);
   readonly batchStatus = signal<string>('IN_PROGRESS');
   readonly retrying = signal(false);
   readonly batchId = signal<string | null>(null);
@@ -39,45 +56,111 @@ export class SnacksComponent implements OnDestroy {
   /** Feature 013: the single active keyword/anchor pair; exactly one card per page (FR-018/FR-021). */
   readonly activeKeyword = signal<SnackKeyword | null>(null);
   readonly activeKeywordAnchor = signal<HTMLElement | null>(null);
+  /**
+   * Feature 014: the regular subtopic the active keyword belongs to, captured at card-open time.
+   * Generation uses this captured source (not the possibly-changed `currentEntry`) so keyboard
+   * navigation can never attach a snack to the wrong subtopic.
+   */
+  private readonly activeKeywordSubtopicId = signal<string | null>(null);
   private readonly destroy$ = new Subject<void>();
   /** Which batch currently owns each target; prevents stale polls from double-triggering (FR-007). */
   private readonly ownerBatchId = new Map<string, string>();
+  /** Feature 014: at most one in-flight generation per keyword key (FR-005). */
+  private readonly generatingKeys = new Set<string>();
+
+  /**
+   * Feature 014: the pure interleave of regular batch items and meaning snacks. Each meaning snack
+   * is placed immediately after its source subtopic's regular entry (in listing order); meaning
+   * snacks whose source subtopic is not in the batch are appended at the end. `entryId` is stable
+   * and collision-free (`subtopicId` vs `meaning:<id>`), so `@for` tracking and index clamping stay
+   * correct across a mixed list (FR-010..FR-013, data-model.md §7).
+   */
+  readonly entries = computed<BackboneEntry[]>(() => {
+    const regular = this.batchItems();
+    const meanings = this.meaningSnacks();
+    const placed = new Set<string>();
+    const out: BackboneEntry[] = [];
+    for (const item of regular) {
+      out.push(toRegularEntry(item));
+      for (const meaning of meanings) {
+        if (meaning.sourceSubtopicId === item.subtopicId && !placed.has(meaning.id)) {
+          out.push(toMeaningEntry(meaning));
+          placed.add(meaning.id);
+        }
+      }
+    }
+    for (const meaning of meanings) {
+      if (!placed.has(meaning.id)) {
+        out.push(toMeaningEntry(meaning));
+        placed.add(meaning.id);
+      }
+    }
+    return out;
+  });
 
   /**
    * FR-013/FR-012: the active position is the shared `AppStateService.currentSnackIndex`,
    * clamped so a stale or out-of-range value never renders a blank card.
    */
   readonly currentIndex = computed(() => {
-    const len = this.items().length;
+    const len = this.entries().length;
     if (len === 0) {
       return 0;
     }
     return Math.min(Math.max(this.appState.currentSnackIndex(), 0), len - 1);
   });
-  readonly currentSnack = computed<BatchItem | null>(
-    () => this.items()[this.currentIndex()] ?? null,
+  readonly currentEntry = computed<BackboneEntry | null>(
+    () => this.entries()[this.currentIndex()] ?? null,
   );
-  readonly nextSnack = computed<BatchItem | null>(
-    () => this.items()[this.currentIndex() + 1] ?? null,
+  readonly nextEntry = computed<BackboneEntry | null>(
+    () => this.entries()[this.currentIndex() + 1] ?? null,
   );
   /** FR-015: Previous is disabled only at the first position. */
   readonly hasPrev = computed(() => this.currentIndex() > 0);
   /** FR-012: Next is unavailable at the last position. */
-  readonly hasNext = computed(() => this.currentIndex() < this.items().length - 1);
-  /** FR-016: Next only advances onto a READY snack (progressive delivery preserved). */
-  readonly canNext = computed(() => this.hasNext() && this.nextSnack()?.snackStatus === 'READY');
-  readonly anyReady = computed(() => this.items().some((i) => i.snackStatus === 'READY'));
+  readonly hasNext = computed(() => this.currentIndex() < this.entries().length - 1);
+  /**
+   * FR-016: Next only advances onto a READY regular snack, or onto a meaning entry (always
+   * readable) — progressive delivery of regular snacks is preserved (FR-011/FR-013).
+   */
+  readonly canNext = computed(() => {
+    const next = this.nextEntry();
+    return this.hasNext() && !!next && (next.kind === 'meaning' || next.snackStatus === 'READY');
+  });
+  readonly anyReady = computed(() => this.batchItems().some((i) => i.snackStatus === 'READY'));
+
+  /**
+   * Feature 014: whether the definition card offers the generate action (a regular entry with a
+   * resolvable theme/subtopic source).
+   */
+  readonly generateEnabled = computed(
+    () => !!this.themeId && this.currentEntry()?.kind === 'regular',
+  );
+
+  /** Feature 014: the card state for the active keyword (FR-003/FR-005/FR-006). */
+  readonly activeGenerateState = computed<GenerateState>(() => {
+    const keyword = this.activeKeyword();
+    const entry = this.currentEntry();
+    if (!keyword || !entry || entry.kind !== 'regular') {
+      return 'idle';
+    }
+    const state = this.generateStates()[generateKey(entry.subtopicId, keyword.term)];
+    if (state) {
+      return state;
+    }
+    return this.meaningSnackService.hasGenerated(entry.subtopicId, keyword.term) ? 'done' : 'idle';
+  });
 
   /**
    * FR-009/FR-010/FR-011: the empty state is reserved for a genuinely terminal batch that
-   * produced no ready snacks. It must never render during creation, before the first poll
-   * response, or while the batch is still IN_PROGRESS.
+   * produced no entries. It must never render during creation, before the first poll
+   * response, while the batch is still IN_PROGRESS, or when a meaning snack is present.
    */
   readonly showEmptyState = computed(
     () =>
       !this.creating() &&
       !this.polling() &&
-      this.items().length === 0 &&
+      this.entries().length === 0 &&
       this.batchStatus() !== 'IN_PROGRESS' &&
       !this.errorMessage(),
   );
@@ -87,6 +170,7 @@ export class SnacksComponent implements OnDestroy {
     private batchService: BatchService,
     private retryService: SnackRetryService,
     private errorService: ErrorService,
+    private meaningSnackService: MeaningSnackService,
     private router: Router,
   ) {
     void this.init();
@@ -101,14 +185,21 @@ export class SnacksComponent implements OnDestroy {
   }
 
   private async init(): Promise<void> {
+    // Feature 014: clear per-keyword generation state on (re)entry so it never leaks across themes.
+    this.generateStates.set({});
+    this.generatingKeys.clear();
     const existing = this.appState.snacks();
     if (existing.length > 0) {
       // FR-002/FR-004: return path — reuse already-generated snacks. No POST /api/batches,
       // no polling. Hydrate the view model first, then clamp the stored index (ordering matters:
       // clamping before hydration could reset the index to 0).
-      this.items.set(existing.map(toReadyBatchItem));
+      this.batchItems.set(existing.map(toReadyBatchItem));
       this.creating.set(false);
       this.polling.set(false);
+      const returnThemeId = this.themeId;
+      if (returnThemeId) {
+        this.loadMeaningSnacks(returnThemeId);
+      }
       this.clampStoredIndex();
       return;
     }
@@ -118,6 +209,10 @@ export class SnacksComponent implements OnDestroy {
       this.router.navigate(['/subtopics']);
       return;
     }
+
+    // FR-018/FR-020: the meaning-snack listing is fetched on every page load, independent of the
+    // regular batch. A failure degrades to an empty list and never affects the batch flow.
+    this.loadMeaningSnacks(themeId);
 
     // FR-001/FR-007: a brand-new batch starts a fresh budget and clears any prior ownership.
     this.retryService.resetAll();
@@ -140,6 +235,27 @@ export class SnacksComponent implements OnDestroy {
         this.creating.set(false);
         this.polling.set(false);
         this.errorMessage.set(this.errorService.getMessage(err));
+      },
+    });
+  }
+
+  /**
+   * Feature 014: load persisted meaning snacks for the theme and cache them. Any error (including
+   * 404/500/network) is treated as "no meaning snacks" so regular snacks render normally
+   * (FR-018/FR-020, SC-006).
+   */
+  private loadMeaningSnacks(themeId: string): void {
+    this.meaningSnackService.listByTheme(themeId).subscribe({
+      next: (res) => {
+        this.meaningSnacks.set(res.meaningSnacks);
+        this.appState.meaningSnacks.set(res.meaningSnacks);
+        for (const meaning of res.meaningSnacks) {
+          this.meaningSnackService.markGenerated(meaning);
+        }
+        this.clampStoredIndex();
+      },
+      error: () => {
+        this.meaningSnacks.set([]);
       },
     });
   }
@@ -270,24 +386,24 @@ export class SnacksComponent implements OnDestroy {
   }
 
   private mergeItem(item: BatchItem): void {
-    const current = this.items();
+    const current = this.batchItems();
     const idx = current.findIndex((i) => i.subtopicId === item.subtopicId);
     if (idx >= 0) {
       const next = [...current];
       next[idx] = item;
-      this.items.set(next);
+      this.batchItems.set(next);
     } else {
-      this.items.set([...current, item]);
+      this.batchItems.set([...current, item]);
     }
     this.clampStoredIndex();
   }
 
   /**
-   * FR-012/SC-005: keep the shared index inside the current item range so a stale value never
-   * renders a blank card. Called after hydration and whenever the item set changes.
+   * FR-012/SC-005: keep the shared index inside the current entry range so a stale value never
+   * renders a blank card. Called after hydration/listing and whenever the entry set changes.
    */
   private clampStoredIndex(): void {
-    const len = this.items().length;
+    const len = this.entries().length;
     if (len === 0) {
       return;
     }
@@ -298,11 +414,12 @@ export class SnacksComponent implements OnDestroy {
   }
 
   private itemFor(target: string): BatchItem | undefined {
-    return this.items().find((i) => i.subtopicId === target);
+    return this.batchItems().find((i) => i.subtopicId === target);
   }
 
+  /** FR-024: only regular snacks are stored in AppState (drives the regular quiz flow). */
   private syncAppStateSnacks(): void {
-    const snacks: Snack[] = this.items()
+    const snacks: Snack[] = this.batchItems()
       .filter((i) => i.snackStatus === 'READY' && i.snack)
       .map((i) => i.snack as Snack);
     this.appState.snacks.set(snacks);
@@ -350,10 +467,13 @@ export class SnacksComponent implements OnDestroy {
 
   /** FR-012: reject out-of-range targets so rapid clicks cannot push the index out of range. */
   private goTo(index: number): void {
-    const len = this.items().length;
+    const len = this.entries().length;
     if (index < 0 || index >= len) {
       return;
     }
+    // Feature 014: changing the active entry dismisses any open definition card so a keyword can
+    // never be generated against a different (newer) source subtopic.
+    this.closeKeyword();
     this.appState.setSnackIndex(index);
   }
 
@@ -364,16 +484,20 @@ export class SnacksComponent implements OnDestroy {
     }
   }
 
-  /** FR-016: advance to the next snack only when it is READY (progressive delivery preserved). */
+  /** FR-016: advance to the next entry when it is a meaning entry or a READY regular snack. */
   next(): void {
     if (this.canNext()) {
       this.goTo(this.currentIndex() + 1);
     }
   }
 
-  /** FR-009/FR-010: jump to a READY entry (guarded even though the button is disabled). */
+  /**
+   * FR-009/FR-010: jump to a selectable entry — a meaning entry is always selectable; a regular
+   * entry only when READY (guarded even though the button is disabled).
+   */
   selectIndex(i: number): void {
-    if (this.items()[i]?.snackStatus === 'READY') {
+    const entry = this.entries()[i];
+    if (entry && (entry.kind === 'meaning' || entry.snackStatus === 'READY')) {
       this.goTo(i);
     }
   }
@@ -389,9 +513,16 @@ export class SnacksComponent implements OnDestroy {
     this.retryTarget(subtopicId);
   }
 
-  /** FR-017: the quiz targets the active snack's subtopic, never a stale/first one. */
+  /**
+   * FR-015/FR-017: the quiz targets the active regular snack's subtopic, never a stale/first one.
+   * A meaning entry has no quiz and early-returns (FR-014/FR-015).
+   */
   startQuiz(): void {
-    const subtopicId = this.currentSnack()?.snack?.subtopicId ?? this.currentSnack()?.subtopicId;
+    const entry = this.currentEntry();
+    if (!entry || entry.kind !== 'regular') {
+      return;
+    }
+    const subtopicId = entry.snack?.subtopicId ?? entry.subtopicId;
     if (!subtopicId) {
       return;
     }
@@ -406,14 +537,62 @@ export class SnacksComponent implements OnDestroy {
 
   /** Feature 013: open the definition card for the activated term (replaces any previous one). */
   openKeyword(event: { keyword: SnackKeyword; anchor: HTMLElement }): void {
+    const entry = this.currentEntry();
+    this.activeKeywordSubtopicId.set(entry?.kind === 'regular' ? entry.subtopicId : null);
     this.activeKeyword.set(event.keyword);
     this.activeKeywordAnchor.set(event.anchor);
+    this.generateError.set(null);
   }
 
   /** Feature 013: clear the active keyword after any dismissal. */
   closeKeyword(): void {
     this.activeKeyword.set(null);
     this.activeKeywordAnchor.set(null);
+    this.activeKeywordSubtopicId.set(null);
+    this.generateError.set(null);
+  }
+
+  /**
+   * Feature 014: generate a meaning snack from the active regular entry's source subtopic. At most
+   * one in-flight request per keyword; on success the item is appended to the backbone (deduped by
+   * id) and marked generated; on failure the card shows the error and adds nothing
+   * (FR-001..FR-006, SC-002/SC-003).
+   */
+  onGenerateRequested(keyword: SnackKeyword): void {
+    const themeId = this.themeId;
+    // Use the source captured when the card opened, never the (possibly navigated) current entry.
+    const subtopicId = this.activeKeywordSubtopicId();
+    if (!themeId || !subtopicId) {
+      this.generateError.set('This keyword cannot be generated right now.');
+      return;
+    }
+    const key = generateKey(subtopicId, keyword.term);
+    if (this.generatingKeys.has(key)) {
+      return;
+    }
+    this.generatingKeys.add(key);
+    this.generateError.set(null);
+    this.generateStates.update((m) => ({ ...m, [key]: 'loading' }));
+
+    this.meaningSnackService
+      .generate(themeId, subtopicId, keyword.term, keyword.definition)
+      .subscribe({
+        next: (res) => {
+          this.generatingKeys.delete(key);
+          this.meaningSnackService.markGenerated(res.meaningSnack);
+          this.meaningSnacks.update((list) =>
+            list.some((m) => m.id === res.meaningSnack.id) ? list : [...list, res.meaningSnack],
+          );
+          this.appState.meaningSnacks.set(this.meaningSnacks());
+          this.generateStates.update((m) => ({ ...m, [key]: 'done' }));
+          this.clampStoredIndex();
+        },
+        error: (err) => {
+          this.generatingKeys.delete(key);
+          this.generateStates.update((m) => ({ ...m, [key]: 'idle' }));
+          this.generateError.set(this.errorService.getMessage(err));
+        },
+      });
   }
 
   goBack(): void {
@@ -440,4 +619,24 @@ function toReadyBatchItem(s: Snack): BatchItem {
     quizStatus: 'READY',
     quizCause: null,
   };
+}
+
+/** Feature 014: project a regular batch item into the backbone union (entryId = subtopicId). */
+function toRegularEntry(item: BatchItem): RegularEntry {
+  return { entryId: item.subtopicId, kind: 'regular', ...item };
+}
+
+/** Feature 014: project a meaning snack into the backbone union (entryId = `meaning:<id>`). */
+function toMeaningEntry(meaning: MeaningSnack): MeaningEntry {
+  return {
+    entryId: `meaning:${meaning.id}`,
+    kind: 'meaning',
+    sourceSubtopicId: meaning.sourceSubtopicId,
+    meaning,
+  };
+}
+
+/** Feature 014: the shared generated-key shape (`${subtopicId}::${term.toLowerCase()}`). */
+function generateKey(subtopicId: string, term: string): string {
+  return `${subtopicId}::${(term ?? '').toLowerCase()}`;
 }

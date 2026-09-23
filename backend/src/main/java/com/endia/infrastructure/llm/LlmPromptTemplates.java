@@ -30,6 +30,14 @@ public class LlmPromptTemplates {
                 .replace("{{variant}}", variant.name());
     }
 
+    /** Feature 014: the externalized meaning-snack prompt, parameterized by theme/term/definition. */
+    public String generateMeaningSnack(String theme, String term, String definition) {
+        String tpl = load("prompts/generate-meaning-snack.md");
+        return tpl.replace("{{theme}}", theme)
+                .replace("{{term}}", term)
+                .replace("{{definition}}", definition);
+    }
+
     private String render(String path, String placeholder, String value) {
         return load(path).replace(placeholder, value);
     }

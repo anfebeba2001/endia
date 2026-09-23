@@ -2,6 +2,7 @@
 
 import { QuizQuestion } from './quiz.model';
 import type { SnackKeyword } from './snack.model';
+import type { MeaningSnack } from './meaning-snack.model';
 
 export type GenerationStatus = 'PENDING' | 'GENERATING' | 'READY' | 'FAILED';
 export type BatchStatus = 'IN_PROGRESS' | 'PARTIAL' | 'COMPLETE' | 'FAILED';
@@ -54,6 +55,36 @@ export interface BatchStatusResponse {
   retrying: boolean;
   items: BatchItem[];
 }
+
+/**
+ * Feature 014: the snacks backbone holds regular batch items and meaning snacks together. A
+ * `BackboneEntry` is the projection of either kind, keyed by a stable `entryId` so `@for` tracking
+ * never collides when a subtopic has both a regular and a meaning entry (data-model.md §7).
+ *
+ * `entryId` is `subtopicId` for a regular entry and `meaning:<id>` for a meaning entry.
+ */
+export interface RegularEntry {
+  entryId: string;
+  kind: 'regular';
+  subtopicId: string;
+  subtopicName: string;
+  snackStatus: GenerationStatus;
+  snackPhase?: SnackGenerationPhase | null;
+  snack: BatchItem['snack'];
+  snackCause: LlmErrorCause | null;
+  quizStatus: GenerationStatus;
+  quizCause: LlmErrorCause | null;
+  quizQuestions?: QuizQuestion[] | null;
+}
+
+export interface MeaningEntry {
+  entryId: string;
+  kind: 'meaning';
+  sourceSubtopicId: string;
+  meaning: MeaningSnack;
+}
+
+export type BackboneEntry = RegularEntry | MeaningEntry;
 
 export interface BatchCreateResponse {
   batchId: string;

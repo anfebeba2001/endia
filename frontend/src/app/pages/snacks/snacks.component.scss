@@ -269,3 +269,41 @@
   color: var(--muted);
   font-size: 0.92rem;
 }
+
+/* Feature 014 — meaning-snack overrides that must beat the scoped `.snack-card` /
+   `.snack-index__item` rules above (declared last, so they win on equal specificity). */
+.snack-card--meaning {
+  background: linear-gradient(180deg, var(--meaning-accent-soft), var(--surface-card) 42%);
+  border-color: var(--meaning-accent);
+
+  &::before {
+    background: var(--meaning-accent);
+  }
+
+  .snack-card__concept-title {
+    color: var(--meaning-ink);
+  }
+
+  /* The context chip joins the teal family (the regular card's chip is tomato) so the whole card
+     reads as one coherent variant instead of a meaning card wearing a regular-card badge. */
+  .snack-card__chip {
+    background: var(--surface-card);
+    border: 1px solid var(--meaning-accent);
+    color: var(--meaning-ink);
+  }
+}
+
+.snack-index__item--meaning {
+  color: var(--meaning-ink);
+
+  &:hover:not(:disabled):not(.snack-index__item--active) {
+    border-color: var(--meaning-accent);
+  }
+
+  &.snack-index__item--active {
+    background: var(--meaning-accent-soft);
+    border-color: var(--meaning-accent);
+    color: var(--meaning-ink);
+    box-shadow: inset 3px 0 0 var(--meaning-accent);
+  }
+}

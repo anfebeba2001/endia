@@ -245,6 +245,82 @@ class OpenAiLlmProviderTest {
         assertEquals(List.of("A", "B"), questions.get(0).dragDropContent().correctOrder());
     }
 
+    // ---- Feature 014 (US1): meaning-snack defensive parsing (FR-002/FR-007/FR-026) ----
+
+    @Test
+    void generateMeaningSnackParsesWellFormedObject() throws Exception {
+        Map<String, Object> snack = new LinkedHashMap<>();
+        snack.put("concept", "c");
+        snack.put("metaphor", "m");
+        snack.put("whyItMatters", "w");
+        snack.put("related", List.of("r1", "r2"));
+
+        String content = mapper.writeValueAsString(snack);
+        String envelope = mapper.writeValueAsString(
+                Map.of("choices", List.of(Map.of("message", Map.of("content", content)))));
+        server.enqueue(new MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody(envelope));
+
+        LlmProvider.GeneratedMeaningSnack result =
+                provider.generateMeaningSnack("Theme", "photosynthesis", "light to sugar");
+
+        assertEquals("c", result.concept());
+        assertEquals("m", result.metaphor());
+        assertEquals("w", result.whyItMatters());
+        assertEquals(List.of("r1", "r2"), result.related());
+    }
+
+    @Test
+    void generateMeaningSnackMissingRelatedYieldsEmptyList() throws Exception {
+        server.enqueue(new MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody("""
+                        {"choices":[{"message":{"content":"{\\"concept\\":\\"c\\",\\"metaphor\\":\\"m\\",\\"whyItMatters\\":\\"w\\"}"}}]}}
+                        """));
+
+        LlmProvider.GeneratedMeaningSnack result =
+                provider.generateMeaningSnack("Theme", "term", "def");
+
+        assertTrue(result.related() == null || result.related().isEmpty(),
+                "a missing related array must yield an empty list");
+    }
+
+    @Test
+    void generateMeaningSnackMalformedOverallResponseThrowsMalformed() {
+        server.enqueue(new MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody("""
+                        {"choices":[{"message":{"content":"not-json-at-all"}}]}}
+                        """));
+
+        LlmGenerationException ex = assertThrows(LlmGenerationException.class,
+                () -> provider.generateMeaningSnack("Theme", "term", "def"));
+        assertEquals(LlmErrorCause.MALFORMED, ex.getCauseType());
+    }
+
+    @Test
+    void generateMeaningSnackIgnoresEmittedKeywords() throws Exception {
+        Map<String, Object> snack = new LinkedHashMap<>();
+        snack.put("concept", "c");
+        snack.put("metaphor", "m");
+        snack.put("whyItMatters", "w");
+        snack.put("related", List.of("r1"));
+        snack.put("keywords", List.of(Map.of("term", "should", "definition", "be ignored")));
+
+        String content = mapper.writeValueAsString(snack);
+        String envelope = mapper.writeValueAsString(
+                Map.of("choices", List.of(Map.of("message", Map.of("content", content)))));
+        server.enqueue(new MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody(envelope));
+
+        LlmProvider.GeneratedMeaningSnack result =
+                provider.generateMeaningSnack("Theme", "term", "def");
+
+        assertEquals(List.of("r1"), result.related());
+    }
+
     // ---- Cause mapping (T072) ----
 
     @Test

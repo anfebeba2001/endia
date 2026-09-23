@@ -29,6 +29,13 @@ public interface LlmProvider {
      */
     List<GeneratedQuestion> generateQuiz(String theme, String subtopicName, int count, DragDropVariant variant);
 
+    /**
+     * Generate a meaning snack (feature 014) from a keyword {@code term} and its short
+     * {@code definition}. Returns the same reading shape as a regular snack but with no
+     * keywords and no quiz content; validated and persisted by {@code MeaningSnackService}.
+     */
+    GeneratedMeaningSnack generateMeaningSnack(String theme, String term, String definition);
+
     record GeneratedSnack(String concept, String metaphor, String whyItMatters, List<String> related,
                           List<SnackKeyword> keywords) {
 
@@ -36,6 +43,13 @@ public interface LlmProvider {
         public GeneratedSnack(String concept, String metaphor, String whyItMatters, List<String> related) {
             this(concept, metaphor, whyItMatters, related, List.of());
         }
+    }
+
+    /**
+     * Provider-agnostic result of a meaning-snack generation (feature 014). No keywords and no
+     * quiz fields: a meaning snack is a distinct kind (FR-007/FR-008/FR-016).
+     */
+    record GeneratedMeaningSnack(String concept, String metaphor, String whyItMatters, List<String> related) {
     }
 
     record GeneratedQuestion(

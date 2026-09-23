@@ -1,0 +1,146 @@
+{
+  "_comment": "Feature 014-meaning-snacks — example payloads. (1) generate response, (2) theme-scoped listing response, (3) mixed backbone entries as the /snacks page builds them. A meaning snack always carries kind:'MEANING', its source term/definition, and generated content; it deliberately has NO subtopicId quiz target, NO quizStatus, NO quizQuestions and NO keywords. Injection payloads illustrate that source/generated text is stored and returned verbatim as plain text and neutralized by the frontend renderer.",
+
+  "generate": {
+    "alreadyExisted": false,
+    "meaningSnack": {
+      "id": "c0ffee00-1111-2222-3333-444455556666",
+      "kind": "MEANING",
+      "themeId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+      "sourceSubtopicId": "6f1c2a9e-1b2c-4d3e-8f90-0a1b2c3d4e5f",
+      "sourceSubtopicName": "Light reactions",
+      "sourceTerm": "photosynthesis",
+      "sourceDefinition": "light to sugar",
+      "concept": "**Photosynthesis** converts light energy into stored chemical energy.\n\nIt happens in two linked stages:\n- **Light reactions** capture energy from sunlight.\n- The **Calvin cycle** fixes carbon dioxide into sugar.",
+      "metaphor": "Think of a leaf as a **solar kitchen**: light is the stove, carbon dioxide is the flour, and sugar is the cake.",
+      "whyItMatters": "Nearly every food chain starts here.\n\nA common pitfall is thinking plants eat soil — they mostly build themselves from **air and light**.",
+      "related": ["Chlorophyll", "Cellular Respiration"],
+      "createdAt": "2026-09-23T12:00:00"
+    }
+  },
+
+  "alreadyExisted": {
+    "_comment": "Returned when a meaning snack for (sourceSubtopicId, sourceTerm) already exists. No LLM call is made and no new row is created.",
+    "alreadyExisted": true,
+    "meaningSnack": {
+      "id": "c0ffee00-1111-2222-3333-444455556666",
+      "kind": "MEANING",
+      "themeId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+      "sourceSubtopicId": "6f1c2a9e-1b2c-4d3e-8f90-0a1b2c3d4e5f",
+      "sourceSubtopicName": "Light reactions",
+      "sourceTerm": "photosynthesis",
+      "sourceDefinition": "light to sugar",
+      "concept": "Existing generated content.",
+      "metaphor": "Existing metaphor.",
+      "whyItMatters": "Existing why.",
+      "related": ["Chlorophyll", "Glucose"],
+      "createdAt": "2026-09-23T12:00:00"
+    }
+  },
+
+  "list": {
+    "_comment": "GET /api/meaning-snacks?themeId=... — always present, [] when the theme has none, ordered by createdAt ascending.",
+    "themeId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+    "meaningSnacks": [
+      {
+        "id": "c0ffee00-1111-2222-3333-444455556666",
+        "kind": "MEANING",
+        "themeId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+        "sourceSubtopicId": "6f1c2a9e-1b2c-4d3e-8f90-0a1b2c3d4e5f",
+        "sourceSubtopicName": "Light reactions",
+        "sourceTerm": "photosynthesis",
+        "sourceDefinition": "light to sugar",
+        "concept": "**Photosynthesis** converts light energy into stored chemical energy.",
+        "metaphor": "Think of a leaf as a **solar kitchen**.",
+        "whyItMatters": "Nearly every food chain starts here.",
+        "related": ["Chlorophyll", "Glucose"],
+        "createdAt": "2026-09-23T12:00:00"
+      },
+      {
+        "id": "deadbeef-0000-1111-2222-333344445555",
+        "kind": "MEANING",
+        "themeId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+        "sourceSubtopicId": "6f1c2a9e-1b2c-4d3e-8f90-0a1b2c3d4e5f",
+        "sourceSubtopicName": "Light reactions",
+        "sourceTerm": "Calvin cycle",
+        "sourceDefinition": "carbon fixation stage",
+        "concept": "The **Calvin cycle** builds sugar from carbon dioxide.",
+        "metaphor": "A **molecular assembly line**.",
+        "whyItMatters": "It is how carbon enters the food web.",
+        "related": ["RuBisCO", "ATP"],
+        "createdAt": "2026-09-23T12:05:00"
+      }
+    ]
+  },
+
+  "emptyList": {
+    "themeId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+    "meaningSnacks": []
+  },
+
+  "backboneEntries": {
+    "_comment": "The /snacks page's BackboneEntry[] after interleaving regular batch items with persisted meaning snacks. Regular entries keep their batch semantics and quiz affordance; meaning entries have kind:'MEANING' and NO quiz fields. entryId is subtopicId for regular and meaning:<id> for meaning.",
+    "entries": [
+      {
+        "entryId": "6f1c2a9e-1b2c-4d3e-8f90-0a1b2c3d4e5f",
+        "kind": "regular",
+        "subtopicId": "6f1c2a9e-1b2c-4d3e-8f90-0a1b2c3d4e5f",
+        "subtopicName": "Light reactions",
+        "snackStatus": "READY",
+        "snack": {
+          "id": "11111111-1111-1111-1111-111111111111",
+          "subtopicId": "6f1c2a9e-1b2c-4d3e-8f90-0a1b2c3d4e5f",
+          "subtopicName": "Light reactions",
+          "concept": "Regular snack concept.",
+          "metaphor": "Regular snack metaphor.",
+          "whyItMatters": "Regular snack why.",
+          "related": ["ATP", "NADPH"],
+          "keywords": [
+            { "term": "photosynthesis", "definition": "light to sugar" }
+          ]
+        },
+        "snackCause": null,
+        "quizStatus": "READY",
+        "quizCause": null
+      },
+      {
+        "entryId": "meaning:c0ffee00-1111-2222-3333-444455556666",
+        "kind": "meaning",
+        "sourceSubtopicId": "6f1c2a9e-1b2c-4d3e-8f90-0a1b2c3d4e5f",
+        "meaning": {
+          "id": "c0ffee00-1111-2222-3333-444455556666",
+          "kind": "MEANING",
+          "themeId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+          "sourceSubtopicId": "6f1c2a9e-1b2c-4d3e-8f90-0a1b2c3d4e5f",
+          "sourceSubtopicName": "Light reactions",
+          "sourceTerm": "photosynthesis",
+          "sourceDefinition": "light to sugar",
+          "concept": "**Photosynthesis** converts light energy into stored chemical energy.",
+          "metaphor": "Think of a leaf as a **solar kitchen**.",
+          "whyItMatters": "Nearly every food chain starts here.",
+          "related": ["Chlorophyll", "Glucose"],
+          "createdAt": "2026-09-23T12:00:00"
+        }
+      }
+    ]
+  },
+
+  "untrusted": {
+    "_comment": "Illustrates that source/generated text is stored/returned verbatim as plain text and neutralized at render time (no execution, no DOM injection).",
+    "alreadyExisted": false,
+    "meaningSnack": {
+      "id": "22222222-3333-4444-5555-666666666666",
+      "kind": "MEANING",
+      "themeId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+      "sourceSubtopicId": "6f1c2a9e-1b2c-4d3e-8f90-0a1b2c3d4e5f",
+      "sourceSubtopicName": "Light reactions",
+      "sourceTerm": "<script>alert(1)</script>",
+      "sourceDefinition": "<img src=x onerror=alert(1)>",
+      "concept": "Payload term: <script>window.__xss=1</script> and readable text.",
+      "metaphor": "A metaphor with <iframe></iframe> and <style>body{color:red}</style> inside.",
+      "whyItMatters": "Inline style payload style=\"color:red\" is inert text here.",
+      "related": ["Plain", "Labels"],
+      "createdAt": "2026-09-23T12:10:00"
+    }
+  }
+}

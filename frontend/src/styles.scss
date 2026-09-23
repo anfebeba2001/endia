@@ -41,6 +41,15 @@
   --keyword-ink: #8a4a0e;
   --keyword-ink-hover: #6b3608;
 
+  /* Feature 014 — meaning snacks. A cool teal family, deliberately distinct from the tomato accent
+     (regular cards), the ochre keyword highlight and body text; paired with an always-present text
+     badge so the distinction is not colour-only (WCAG 1.4.1). ~4.9:1 on the card surface (AA). */
+  --meaning-accent: #1f7a8c;
+  --meaning-accent-soft: #dceff2;
+  --meaning-ink: #155f6e;
+  /* Text/icon on the solid teal fill. Light: white on teal = 4.98:1 (AA). */
+  --meaning-on-accent: #ffffff;
+
   /* ── Type ─────────────────────────────────────────────────────── */
   --font-display:
     'Schibsted Grotesk', 'Figtree', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial,
@@ -108,6 +117,13 @@
      card surface (WCAG AA+), clearly distinct from both body and ink text. */
   --keyword-ink: #f0b95e;
   --keyword-ink-hover: #ffd27a;
+
+  /* Feature 014 — meaning snacks on the dark canvas: a cool cyan-teal, ~8.0:1 on the card surface. */
+  --meaning-accent: #5cc8d8;
+  --meaning-accent-soft: #123238;
+  --meaning-ink: #8fe0ec;
+  /* On the solid cyan-teal fill the dark ink holds 7.7:1; white would only reach 1.96:1 (fail). */
+  --meaning-on-accent: #0c2a30;
 
   /* darker warm shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
@@ -591,4 +607,58 @@ app-results {
   .skip-link {
     color: var(--canvas);
   }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Feature 014 — meaning snacks: a distinct, quiz-free backbone entry.
+   The teal family sets them apart from regular (tomato) cards, and the
+   always-present "Meaning snack" badge keeps the distinction from being
+   colour-only (WCAG 1.4.1, FR-012/SC-004).
+   ══════════════════════════════════════════════════════════════════ */
+
+.snack-index__badge {
+  display: inline-block;
+  margin-right: 0.35rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--radius-pill);
+  background: var(--meaning-accent-soft);
+  color: var(--meaning-ink);
+  font: 600 0.66rem/1.5 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.snack-card__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.9rem;
+  border-radius: var(--radius-pill);
+  font: 600 0.72rem/1.4 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.snack-card__badge--meaning {
+  background: var(--meaning-accent);
+  color: var(--meaning-on-accent);
+}
+
+.snack-card__source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0.15rem 0 0.4rem;
+}
+
+.snack-card__source-term {
+  font: 700 1.05rem/1.3 var(--font-display);
+  color: var(--meaning-ink);
+  overflow-wrap: anywhere;
+}
+
+.snack-card__source-def {
+  color: var(--muted);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
 }

@@ -25,6 +25,43 @@
       </button>
       <p class="keyword-card__term">{{ kw.term }}</p>
       <p class="keyword-card__definition">{{ kw.definition }}</p>
+
+      @if (generateEnabled()) {
+        <!--
+          The action control stays mounted through every state so keyboard focus is never dropped
+          when "Generate snack" is activated (idle → loading → done). The state changes are announced
+          by a visually-hidden live region, and the row reserves its height so nothing shifts.
+        -->
+        <div class="keyword-card__action">
+          <button
+            type="button"
+            class="keyword-card__generate"
+            [class.keyword-card__generate--done]="generateState() === 'done'"
+            [disabled]="generateState() === 'done'"
+            [attr.aria-disabled]="generateState() === 'loading' ? 'true' : null"
+            (click)="requestGenerate()"
+          >
+            @if (generateState() === 'loading') {
+              <span class="spinner spinner--sm" aria-hidden="true"></span>
+              Generating…
+            } @else if (generateState() === 'done') {
+              Added to your snacks <span aria-hidden="true">✓</span>
+            } @else {
+              Generate snack
+            }
+          </button>
+          @if (generateState() === 'loading') {
+            <span class="keyword-card__action-status sr-only" role="status">Generating…</span>
+          }
+          @if (generateState() === 'done') {
+            <span class="sr-only" role="status">Added to your snacks</span>
+          }
+        </div>
+      }
+
+      @if (generateError(); as err) {
+        <p class="keyword-card__error" role="alert">{{ err }}</p>
+      }
     </div>
   </div>
 }

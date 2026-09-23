@@ -88,6 +88,25 @@ public class OpenAiLlmProvider implements LlmProvider {
     }
 
     @Override
+    public GeneratedMeaningSnack generateMeaningSnack(String theme, String term, String definition) {
+        String response = callLlm(templates.generateMeaningSnack(theme, term, definition));
+        try {
+            JsonNode node = objectMapper.readTree(response);
+            String concept = node.path("concept").asText(null);
+            String metaphor = node.path("metaphor").asText(null);
+            String whyItMatters = node.path("whyItMatters").asText(null);
+            List<String> related = new ArrayList<>();
+            if (node.path("related").isArray()) {
+                node.path("related").forEach(n -> related.add(n.asText()));
+            }
+            // Any "keywords" the model emits is deliberately ignored: a meaning snack has none.
+            return new GeneratedMeaningSnack(concept, metaphor, whyItMatters, related);
+        } catch (Exception e) {
+            throw malformed("Failed to parse LLM meaning-snack response", e);
+        }
+    }
+
+    @Override
     public List<GeneratedQuestion> generateQuiz(String theme, String subtopicName, int count, DragDropVariant variant) {
         String response = callLlm(templates.generateQuiz(theme, subtopicName, count, variant));
         try {
