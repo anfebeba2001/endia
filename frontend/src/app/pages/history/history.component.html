@@ -3,8 +3,8 @@
     <span class="step-chip">History</span>
     <h1 class="page__title">Everything you've studied</h1>
     <p class="page__subtitle">
-      A read-only look back at every theme you created, with the snacks and quiz questions
-      generated along the way.
+      A read-only look back at every theme you created, with the snacks and quiz questions generated
+      along the way.
     </p>
   </header>
 
@@ -59,9 +59,24 @@
                       }
                       @for (snack of subtopic.snacks; track snack.id) {
                         <article class="history-snack">
-                          <app-rich-text class="history-snack__concept" [text]="snack.concept" />
-                          <app-rich-text class="history-snack__metaphor" [text]="snack.metaphor" />
-                          <app-rich-text class="history-snack__why" [text]="snack.whyItMatters" />
+                          <app-rich-text
+                            class="history-snack__concept"
+                            [text]="snack.concept"
+                            [keywords]="snack.keywords ?? []"
+                            (keywordSelected)="openKeyword($event)"
+                          />
+                          <app-rich-text
+                            class="history-snack__metaphor"
+                            [text]="snack.metaphor"
+                            [keywords]="snack.keywords ?? []"
+                            (keywordSelected)="openKeyword($event)"
+                          />
+                          <app-rich-text
+                            class="history-snack__why"
+                            [text]="snack.whyItMatters"
+                            [keywords]="snack.keywords ?? []"
+                            (keywordSelected)="openKeyword($event)"
+                          />
                           @if (snack.related.length > 0) {
                             <ul class="history-snack__related">
                               @for (rel of snack.related; track $index) {
@@ -95,4 +110,11 @@
       }
     </div>
   }
+
+  <!-- Exactly one definition card per page (FR-021). -->
+  <app-keyword-definition-card
+    [keyword]="activeKeyword()"
+    [anchor]="activeKeywordAnchor()"
+    (closed)="closeKeyword()"
+  />
 </section>

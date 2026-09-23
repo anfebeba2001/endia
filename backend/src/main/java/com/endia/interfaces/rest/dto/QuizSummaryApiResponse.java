@@ -40,7 +40,8 @@ public record QuizSummaryApiResponse(
             String concept,
             String metaphor,
             String whyItMatters,
-            List<String> related
+            List<String> related,
+            List<SnackKeywordDto> keywords
     ) {
     }
 }

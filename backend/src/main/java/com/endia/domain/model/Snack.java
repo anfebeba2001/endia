@@ -15,6 +15,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import com.endia.infrastructure.persistence.JpaJsonConverter;
+import com.endia.infrastructure.persistence.JpaSnackKeywordListConverter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,11 +49,25 @@ public class Snack {
     @Column(nullable = false, columnDefinition = "JSON")
     private List<String> related = new ArrayList<>();
 
+    /**
+     * Key terms with very short definitions (feature 013, FR-011/FR-012). Additive and nullable:
+     * pre-existing rows load as {@code NULL} and are read as an empty list by the converter.
+     */
+    @Convert(converter = JpaSnackKeywordListConverter.class)
+    @Column(nullable = true, columnDefinition = "JSON")
+    private List<SnackKeyword> keywords = new ArrayList<>();
+
     public Snack(Subtopic subtopic, String concept, String metaphor, String whyItMatters, List<String> related) {
+        this(subtopic, concept, metaphor, whyItMatters, related, List.of());
+    }
+
+    public Snack(Subtopic subtopic, String concept, String metaphor, String whyItMatters,
+                 List<String> related, List<SnackKeyword> keywords) {
         this.subtopic = subtopic;
         this.concept = concept;
         this.metaphor = metaphor;
         this.whyItMatters = whyItMatters;
         this.related = related != null ? related : new ArrayList<>();
+        this.keywords = keywords != null ? keywords : new ArrayList<>();
     }
 }

@@ -2,6 +2,7 @@ package com.endia.interfaces.rest;
 
 import com.endia.application.service.ThemeService;
 import com.endia.interfaces.rest.dto.ThemeHistoryApiResponse;
+import com.endia.interfaces.rest.dto.SnackKeywordDto;
 import com.endia.interfaces.rest.dto.ThemeSuggestApiRequest;
 import com.endia.interfaces.rest.dto.ThemeSuggestApiResponse;
 import jakarta.validation.Valid;
@@ -56,7 +57,12 @@ public class ThemeController {
                                                         snack.concept(),
                                                         snack.metaphor(),
                                                         snack.whyItMatters(),
-                                                        snack.related()))
+                                                        snack.related(),
+                                                        snack.keywords() == null
+                                                                ? java.util.List.of()
+                                                                : snack.keywords().stream()
+                                                                        .map(SnackKeywordDto::from)
+                                                                        .toList()))
                                                 .toList(),
                                         subtopic.quizQuestions().stream()
                                                 .map(question -> new ThemeHistoryApiResponse.QuestionItem(

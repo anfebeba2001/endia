@@ -6,6 +6,7 @@ import com.endia.domain.exception.LlmGenerationException;
 import com.endia.domain.exception.ServiceUnavailableException;
 import com.endia.domain.model.QuizQuestion;
 import com.endia.domain.model.Snack;
+import com.endia.domain.model.SnackKeyword;
 import com.endia.domain.model.Subtopic;
 import com.endia.domain.model.Theme;
 import com.endia.infrastructure.persistence.JpaQuizQuestionRepository;
@@ -123,7 +124,8 @@ public class ThemeService {
                                                         snack.getConcept(),
                                                         snack.getMetaphor(),
                                                         snack.getWhyItMatters(),
-                                                        snack.getRelated()))
+                                                        snack.getRelated(),
+                                                        snack.getKeywords() == null ? List.of() : snack.getKeywords()))
                                                 .toList(),
                                         questionsBySubtopic.getOrDefault(subtopic.getId(), List.of()).stream()
                                                 .map(question -> new QuestionHistory(
@@ -148,7 +150,13 @@ public class ThemeService {
     }
 
     public record SnackHistory(UUID id, String concept, String metaphor, String whyItMatters,
-                               List<String> related) {
+                               List<String> related, List<SnackKeyword> keywords) {
+
+        /** Backward-compatible overload for callers/tests that predate keywords (FR-030). */
+        public SnackHistory(UUID id, String concept, String metaphor, String whyItMatters,
+                            List<String> related) {
+            this(id, concept, metaphor, whyItMatters, related, List.of());
+        }
     }
 
     public record QuestionHistory(UUID id, QuestionType type, String prompt, String explanation) {

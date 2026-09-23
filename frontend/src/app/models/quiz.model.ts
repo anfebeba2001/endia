@@ -1,5 +1,7 @@
 // Quiz question types (FR-005..008)
 
+import type { SnackKeyword } from './snack.model';
+
 export type QuestionType = 'MULTIPLE_CHOICE' | 'DRAG_DROP';
 export type DragDropVariant = 'SEQUENCING' | 'CLASSIFICATION' | 'MATCHING';
 
@@ -59,6 +61,7 @@ export interface Recap {
     metaphor: string;
     whyItMatters: string;
     related: string[];
+    keywords?: SnackKeyword[];
   } | null;
 }
 

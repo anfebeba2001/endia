@@ -20,7 +20,7 @@ public record ThemeHistoryApiResponse(
     }
 
     public record SnackItem(UUID id, String concept, String metaphor, String whyItMatters,
-                            List<String> related) {
+                            List<String> related, List<SnackKeywordDto> keywords) {
     }
 
     public record QuestionItem(UUID id, String type, String prompt, String explanation) {

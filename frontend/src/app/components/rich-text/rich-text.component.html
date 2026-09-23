@@ -1,48 +1,63 @@
 <!--
-  SECURITY BOUNDARY (feature 012): this template intentionally contains NO [innerHTML] and NO
+  SECURITY BOUNDARY (feature 012/013): this template intentionally contains NO [innerHTML] and NO
   DomSanitizer. It renders the parsed AST with plain Angular bindings, so the only elements it can
-  ever produce are <p>, <ul>, <li>, <strong> and <br>. Every other character (including raw HTML,
-  <script>, event handlers and inline styles) flows through interpolation as an inert, escaped text
-  node (FR-015..FR-019).
+  ever produce are <p>, <ul>, <li>, <strong>, <br> and <button>. Every other character (including raw
+  HTML, <script>, event handlers and inline styles) flows through interpolation as an inert, escaped
+  text node (FR-026..FR-029). Keyword term/definition text is untrusted and is emitted only as
+  escaped interpolation.
 -->
+<ng-template #inlineTpl let-nodes>
+  @for (node of nodes; track $index) {
+    @switch (node.kind) {
+      @case ('bold') {
+        <strong class="rich-text__strong">
+          <ng-container
+            [ngTemplateOutlet]="inlineTpl"
+            [ngTemplateOutletContext]="{ $implicit: node.nodes }"
+          />
+        </strong>
+      }
+      @case ('keyword') {
+        <button
+          type="button"
+          class="rich-text__keyword"
+          [attr.data-term]="node.term"
+          [attr.data-definition]="node.definition"
+          (click)="onKeywordClick($event, node)"
+        >
+          {{ node.text }}
+        </button>
+      }
+      @case ('break') {
+        <br />
+      }
+      @default {
+        {{ node.text }}
+      }
+    }
+  }
+</ng-template>
+
 @for (block of blocks(); track $index) {
   @switch (block.kind) {
     @case ('list') {
       <ul class="rich-text__list">
         @for (item of block.items; track $index) {
           <li class="rich-text__item">
-            @for (node of item; track $index) {
-              @switch (node.kind) {
-                @case ('bold') {
-                  <strong class="rich-text__strong">{{ node.text }}</strong>
-                }
-                @case ('break') {
-                  <br />
-                }
-                @default {
-                  {{ node.text }}
-                }
-              }
-            }
+            <ng-container
+              [ngTemplateOutlet]="inlineTpl"
+              [ngTemplateOutletContext]="{ $implicit: item }"
+            />
           </li>
         }
       </ul>
     }
     @default {
       <p class="rich-text__p">
-        @for (node of block.nodes; track $index) {
-          @switch (node.kind) {
-            @case ('bold') {
-              <strong class="rich-text__strong">{{ node.text }}</strong>
-            }
-            @case ('break') {
-              <br />
-            }
-            @default {
-              {{ node.text }}
-            }
-          }
-        }
+        <ng-container
+          [ngTemplateOutlet]="inlineTpl"
+          [ngTemplateOutletContext]="{ $implicit: block.nodes }"
+        />
       </p>
     }
   }

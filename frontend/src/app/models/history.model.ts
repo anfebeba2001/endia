@@ -1,4 +1,5 @@
 import type { QuestionType } from './quiz.model';
+import type { SnackKeyword } from './snack.model';
 
 /** Read-only history model (feature 011), mirroring `GET /api/themes`. */
 
@@ -8,6 +9,7 @@ export interface HistorySnack {
   metaphor: string;
   whyItMatters: string;
   related: string[];
+  keywords?: SnackKeyword[];
 }
 
 export interface HistoryQuestion {

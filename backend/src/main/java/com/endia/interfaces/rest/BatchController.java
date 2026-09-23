@@ -8,6 +8,7 @@ import com.endia.interfaces.rest.dto.BatchCreateApiRequest;
 import com.endia.interfaces.rest.dto.BatchCreateApiResponse;
 import com.endia.interfaces.rest.dto.BatchStatusApiResponse;
 import com.endia.interfaces.rest.dto.QuizGenerateApiResponse;
+import com.endia.interfaces.rest.dto.SnackKeywordDto;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -89,6 +90,9 @@ public class BatchController {
                 s.getConcept(),
                 s.getMetaphor(),
                 s.getWhyItMatters(),
-                s.getRelated());
+                s.getRelated(),
+                s.getKeywords() == null
+                        ? List.of()
+                        : s.getKeywords().stream().map(SnackKeywordDto::from).toList());
     }
 }
