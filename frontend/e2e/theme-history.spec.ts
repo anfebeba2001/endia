@@ -21,6 +21,7 @@ const THEMES: ThemeHistory[] = [
             metaphor: 'A solar kitchen',
             whyItMatters: 'Prevents a misconception',
             related: ['ATP synthase', 'Electron transport'],
+            keywords: [],
           },
         ],
         quizQuestions: [
@@ -111,7 +112,9 @@ test.describe('US1 — Browse created themes from the History page', () => {
 });
 
 test.describe('US2 — Read-only nested subtopics, snacks and quiz questions', () => {
-  test('expanding a theme shows its nested content and issues no generation requests', async ({ page }) => {
+  test('expanding a theme shows its nested content and issues no generation requests', async ({
+    page,
+  }) => {
     const postUrls: string[] = [];
     page.on('request', (request) => {
       if (request.method() === 'POST') {
@@ -125,17 +128,27 @@ test.describe('US2 — Read-only nested subtopics, snacks and quiz questions', (
     const firstCard = page.locator('.history-card').first();
     await firstCard.locator('.history-card__toggle').click();
 
-    await expect(firstCard.locator('.history-subtopic__name').first()).toHaveText('Light reactions');
-    await expect(firstCard.locator('.history-snack__concept')).toHaveText('Chlorophyll absorbs light');
+    await expect(firstCard.locator('.history-subtopic__name').first()).toHaveText(
+      'Light reactions',
+    );
+    await expect(firstCard.locator('.history-snack__concept')).toHaveText(
+      'Chlorophyll absorbs light',
+    );
     await expect(firstCard.locator('.history-snack__metaphor')).toContainText('solar kitchen');
-    await expect(firstCard.locator('.history-snack__why')).toContainText('Prevents a misconception');
+    await expect(firstCard.locator('.history-snack__why')).toContainText(
+      'Prevents a misconception',
+    );
     await expect(firstCard.locator('.history-snack__related')).toContainText('ATP synthase');
     await expect(firstCard.locator('.history-question__type')).toContainText('MULTIPLE_CHOICE');
     await expect(firstCard.locator('.history-question__prompt')).toHaveText('What absorbs light?');
-    await expect(firstCard.locator('.history-question__explanation')).toContainText('Chlorophyll drives it.');
+    await expect(firstCard.locator('.history-question__explanation')).toContainText(
+      'Chlorophyll drives it.',
+    );
 
     // A subtopic with no snacks/questions shows a "nothing generated yet" indication, no error.
-    await expect(firstCard.locator('.history-subtopic__empty').first()).toContainText(/nothing generated yet/i);
+    await expect(firstCard.locator('.history-subtopic__empty').first()).toContainText(
+      /nothing generated yet/i,
+    );
     await expect(page.locator('.history .error-banner')).toHaveCount(0);
 
     const generation = postUrls.filter(
@@ -177,7 +190,9 @@ test.describe('US3 — Loading, error and empty states', () => {
 });
 
 test.describe('US4 — Keyboard accessibility', () => {
-  test('History header link is keyboard reachable and activatable with visible focus', async ({ page }) => {
+  test('History header link is keyboard reachable and activatable with visible focus', async ({
+    page,
+  }) => {
     await setupThemesHistoryMock(page, THEMES);
     await page.goto('/');
 
@@ -190,7 +205,9 @@ test.describe('US4 — Keyboard accessibility', () => {
     await expect(page).toHaveURL(/\/history$/);
   });
 
-  test('theme detail control is keyboard reachable and activatable with visible focus', async ({ page }) => {
+  test('theme detail control is keyboard reachable and activatable with visible focus', async ({
+    page,
+  }) => {
     await setupThemesHistoryMock(page, THEMES);
     await page.goto('/history');
     await expect(page.locator('.history-card').first()).toBeVisible();
@@ -226,6 +243,7 @@ const RICH_THEMES: ThemeHistory[] = [
             metaphor: 'A **solar kitchen**.',
             whyItMatters: 'Prevents a **misconception**.',
             related: ['ATP synthase', 'Electron transport'],
+            keywords: [],
           },
         ],
         quizQuestions: [],
@@ -250,6 +268,7 @@ const XSS_THEMES: ThemeHistory[] = [
             metaphor: '<img src=x onerror="window.__xss=1">History metaphor',
             whyItMatters: '<iframe></iframe> and <style>body{color:red}</style>',
             related: ['Plain'],
+            keywords: [],
           },
         ],
         quizQuestions: [],
@@ -284,10 +303,141 @@ test.describe('US5 — rich formatting in the history view (feature 012)', () =>
     const firstCard = page.locator('.history-card').first();
     await firstCard.locator('.history-card__toggle').click();
 
-    expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
+    expect(
+      await page.evaluate(() => (window as unknown as { __xss?: number }).__xss),
+    ).toBeUndefined();
     for (const selector of ['script', 'img', 'iframe', 'style', 'a']) {
       await expect(firstCard.locator(`.history-snack ${selector}`)).toHaveCount(0);
     }
-    await expect(firstCard.locator('.history-snack__concept')).toContainText('Safe history concept');
+    await expect(firstCard.locator('.history-snack__concept')).toContainText(
+      'Safe history concept',
+    );
+  });
+});
+
+// Feature 013 — the read-only history view highlights keywords through the same shared renderer and
+// opens the same single definition card (FR-025, SC-009).
+
+const KEYWORD_THEMES: ThemeHistory[] = [
+  {
+    themeId: 'theme-kw',
+    prompt: 'Photosynthesis',
+    createdAt: '2026-09-11T19:52:00',
+    subtopics: [
+      {
+        id: 'sub-kw',
+        name: 'Light reactions',
+        snacks: [
+          {
+            id: 'snack-kw',
+            concept: 'Photosynthesis converts light into chemical energy.',
+            metaphor: 'A solar kitchen cooks sugar.',
+            whyItMatters: 'Light drives everything.',
+            related: ['Chlorophyll', 'Glucose'],
+            keywords: [
+              { term: 'photosynthesis', definition: 'light to sugar' },
+              { term: 'solar kitchen', definition: 'leaf factory' },
+            ],
+          },
+        ],
+        quizQuestions: [],
+      },
+    ],
+  },
+];
+
+const XSS_KEYWORD_THEMES: ThemeHistory[] = [
+  {
+    themeId: 'theme-xss-kw',
+    prompt: 'Untrusted',
+    createdAt: '2026-09-11T19:52:00',
+    subtopics: [
+      {
+        id: 'sub-xss-kw',
+        name: 'Payloads',
+        snacks: [
+          {
+            id: 'snack-xss-kw',
+            concept: '<script>window.__xss=1</script>Safe history keyword concept',
+            metaphor: '<img src=x onerror="window.__xss=1">History metaphor',
+            whyItMatters: '<iframe></iframe> and <style>body{color:red}</style>',
+            related: ['Plain'],
+            keywords: [
+              {
+                term: '<script>window.__xss=1</script>',
+                definition: '<img src=x onerror="window.__xss=1">',
+              },
+              { term: '<iframe></iframe>', definition: '<style>body{color:red}</style>' },
+            ],
+          },
+        ],
+        quizQuestions: [],
+      },
+    ],
+  },
+];
+
+test.describe('US6 — keyword highlighting in the history view (feature 013)', () => {
+  test('highlights a present term and no literal markers', async ({ page }) => {
+    await setupThemesHistoryMock(page, KEYWORD_THEMES);
+    await page.goto('/history');
+
+    const firstCard = page.locator('.history-card').first();
+    await firstCard.locator('.history-card__toggle').click();
+
+    const concept = firstCard.locator('.history-snack__concept');
+    await expect(concept.locator('.rich-text__keyword[data-term="photosynthesis"]')).toHaveCount(1);
+    await expect(concept.locator('.rich-text__keyword')).toHaveText('Photosynthesis');
+  });
+
+  test('clicking a highlighted term opens the single definition card and Escape closes it', async ({
+    page,
+  }) => {
+    await setupThemesHistoryMock(page, KEYWORD_THEMES);
+    await page.goto('/history');
+
+    const firstCard = page.locator('.history-card').first();
+    await firstCard.locator('.history-card__toggle').click();
+
+    await firstCard
+      .locator('.history-snack__metaphor .rich-text__keyword[data-term="solar kitchen"]')
+      .click();
+    const card = page.locator('.keyword-card');
+    await expect(card).toBeVisible();
+    await expect(card.locator('.keyword-card__definition')).toHaveText('leaf factory');
+
+    await page.keyboard.press('Escape');
+    await expect(card).toHaveCount(0);
+  });
+
+  test('keyword payloads execute nothing, inject no nodes and the card escapes them (FR-025, SC-007)', async ({
+    page,
+  }) => {
+    await setupThemesHistoryMock(page, XSS_KEYWORD_THEMES);
+    await page.goto('/history');
+
+    const firstCard = page.locator('.history-card').first();
+    await firstCard.locator('.history-card__toggle').click();
+
+    expect(
+      await page.evaluate(() => (window as unknown as { __xss?: number }).__xss),
+    ).toBeUndefined();
+    for (const selector of ['script', 'img', 'iframe', 'style', 'a']) {
+      await expect(firstCard.locator(`.history-snack ${selector}`)).toHaveCount(0);
+    }
+    await expect(firstCard.locator('.history-snack__concept')).toContainText(
+      'Safe history keyword concept',
+    );
+
+    await firstCard.locator('.history-snack__concept .rich-text__keyword').first().click();
+    const card = page.locator('.keyword-card');
+    await expect(card).toBeVisible();
+    await expect(card.locator('.keyword-card__definition')).toContainText('<img');
+    expect(
+      await page.evaluate(() => (window as unknown as { __xss?: number }).__xss),
+    ).toBeUndefined();
+    for (const selector of ['script', 'img', 'iframe', 'style', 'a']) {
+      await expect(card.locator(selector)).toHaveCount(0);
+    }
   });
 });

@@ -55,6 +55,7 @@ test.describe('P2 — Progressive snack delivery (FR-002/004)', () => {
                 metaphor: 'Solar factory.',
                 whyItMatters: 'Produces ATP and NADPH.',
                 related: ['ATP'],
+                keywords: [],
               },
               snackCause: null,
               quizStatus: 'READY',
@@ -64,17 +65,19 @@ test.describe('P2 — Progressive snack delivery (FR-002/004)', () => {
               subtopicId: 'sub-002',
               subtopicName: 'Calvin cycle',
               snackStatus: poll < 3 ? 'GENERATING' : 'READY',
-              snack: poll < 3
-                ? null
-                : {
-                    id: 'snack-1',
-                    subtopicId: 'sub-002',
-                    subtopicName: 'Calvin cycle',
-                    concept: 'CO2 becomes sugar.',
-                    metaphor: 'Assembly line.',
-                    whyItMatters: 'Builds glucose.',
-                    related: ['RuBP'],
-                  },
+              snack:
+                poll < 3
+                  ? null
+                  : {
+                      id: 'snack-1',
+                      subtopicId: 'sub-002',
+                      subtopicName: 'Calvin cycle',
+                      concept: 'CO2 becomes sugar.',
+                      metaphor: 'Assembly line.',
+                      whyItMatters: 'Builds glucose.',
+                      related: ['RuBP'],
+                      keywords: [],
+                    },
               snackCause: null,
               quizStatus: 'READY',
               quizCause: null,
@@ -109,11 +112,16 @@ test.describe('P2 — Progressive snack delivery (FR-002/004)', () => {
 
     // Advance to the second snack once it becomes READY.
     await page.locator('.snack-card .primary-btn').click();
-    await page.locator('.snack-card__chip').filter({ hasText: 'Calvin cycle' }).waitFor({ state: 'visible', timeout: 8000 });
+    await page
+      .locator('.snack-card__chip')
+      .filter({ hasText: 'Calvin cycle' })
+      .waitFor({ state: 'visible', timeout: 8000 });
     await expect(page.locator('.snack-card__chip')).toHaveText('Calvin cycle');
   });
 
-  test('Start Quiz uses prefetched questions without regeneration call or spinner (FR-003/SC-002)', async ({ page }) => {
+  test('Start Quiz uses prefetched questions without regeneration call or spinner (FR-003/SC-002)', async ({
+    page,
+  }) => {
     // Mock theme + batch whose items report quizStatus READY with prefetched questions.
     await page.route('**/api/themes/suggest', async (route) => {
       await route.fulfill({
@@ -165,6 +173,7 @@ test.describe('P2 — Progressive snack delivery (FR-002/004)', () => {
                 metaphor: 'Solar factory.',
                 whyItMatters: 'Produces ATP and NADPH.',
                 related: ['ATP'],
+                keywords: [],
               },
               snackCause: null,
               quizStatus: 'READY',
@@ -174,7 +183,12 @@ test.describe('P2 — Progressive snack delivery (FR-002/004)', () => {
                   id: 'q-001',
                   type: 'MULTIPLE_CHOICE',
                   prompt: 'What is the primary role of chlorophyll?',
-                  options: ['Absorbing light', 'Storing glucose', 'Releasing oxygen', 'Transporting water'],
+                  options: [
+                    'Absorbing light',
+                    'Storing glucose',
+                    'Releasing oxygen',
+                    'Transporting water',
+                  ],
                   variant: null,
                   dragDrop: null,
                 },
@@ -182,7 +196,12 @@ test.describe('P2 — Progressive snack delivery (FR-002/004)', () => {
                   id: 'q-002',
                   type: 'MULTIPLE_CHOICE',
                   prompt: 'Where do light reactions occur?',
-                  options: ['Thylakoid membrane', 'Stroma', 'Outer membrane', 'Intermembrane space'],
+                  options: [
+                    'Thylakoid membrane',
+                    'Stroma',
+                    'Outer membrane',
+                    'Intermembrane space',
+                  ],
                   variant: null,
                   dragDrop: null,
                 },
@@ -213,7 +232,11 @@ test.describe('P2 — Progressive snack delivery (FR-002/004)', () => {
     let generateCalled = false;
     await page.route('**/api/quiz/generate', async (route) => {
       generateCalled = true;
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ subtopicId: 'sub-001', questions: [] }) });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ subtopicId: 'sub-001', questions: [] }),
+      });
     });
 
     await page.goto('/');

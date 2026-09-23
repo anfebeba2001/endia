@@ -4,6 +4,7 @@ import com.endia.application.port.LlmProvider;
 import com.endia.domain.enums.DragDropVariant;
 import com.endia.domain.enums.LlmErrorCause;
 import com.endia.domain.exception.LlmGenerationException;
+import com.endia.domain.model.SnackKeyword;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -140,6 +141,77 @@ class OpenAiLlmProviderTest {
         assertTrue(result.concept().contains("\n"), "line breaks must survive");
         assertTrue(!result.concept().contains("&ast;") && !result.concept().contains("&lt;"),
                 "markup must not be HTML-escaped");
+    }
+
+    // ---- Feature 013 (US1): defensive keyword parsing (FR-006) ----
+
+    @Test
+    void generateSnackParsesWellFormedKeywordsArray() throws Exception {
+        Map<String, Object> snack = new LinkedHashMap<>();
+        snack.put("concept", "c");
+        snack.put("metaphor", "m");
+        snack.put("whyItMatters", "w");
+        snack.put("related", List.of("r1"));
+        snack.put("keywords", List.of(
+                Map.of("term", "mitosis", "definition", "cell division"),
+                Map.of("term", "ATP", "definition", "energy currency")));
+
+        String content = mapper.writeValueAsString(snack);
+        String envelope = mapper.writeValueAsString(
+                Map.of("choices", List.of(Map.of("message", Map.of("content", content)))));
+        server.enqueue(new MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody(envelope));
+
+        LlmProvider.GeneratedSnack result = provider.generateSnack("Theme", "Subtopic");
+
+        assertEquals(2, result.keywords().size());
+        assertEquals(new SnackKeyword("mitosis", "cell division"), result.keywords().get(0));
+        assertEquals(new SnackKeyword("ATP", "energy currency"), result.keywords().get(1));
+    }
+
+    @Test
+    void generateSnackMissingKeywordsArrayYieldsEmptyList() throws Exception {
+        server.enqueue(new MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody("""
+                        {"choices":[{"message":{"content":"{\\"concept\\":\\"c\\",\\"metaphor\\":\\"m\\",\\"whyItMatters\\":\\"w\\",\\"related\\":[\\"r1\\"]}"}}]}}
+                        """));
+
+        LlmProvider.GeneratedSnack result = provider.generateSnack("Theme", "Subtopic");
+
+        assertTrue(result.keywords() == null || result.keywords().isEmpty(),
+                "a missing keywords array must yield an empty list");
+    }
+
+    @Test
+    void generateSnackSkipsMalformedKeywordElementsWithoutThrowing() throws Exception {
+        Map<String, Object> snack = new LinkedHashMap<>();
+        snack.put("concept", "c");
+        snack.put("metaphor", "m");
+        snack.put("whyItMatters", "w");
+        snack.put("related", List.of("r1"));
+        snack.put("keywords", List.of(
+                "not-an-object",
+                42,
+                Map.of("term", "onlyTerm"),
+                Map.of("definition", "only definition"),
+                Map.of("term", "valid", "definition", "ok")));
+
+        String content = mapper.writeValueAsString(snack);
+        String envelope = mapper.writeValueAsString(
+                Map.of("choices", List.of(Map.of("message", Map.of("content", content)))));
+        server.enqueue(new MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody(envelope));
+
+        LlmProvider.GeneratedSnack result = provider.generateSnack("Theme", "Subtopic");
+
+        assertTrue(result.keywords().stream()
+                        .anyMatch(k -> "valid".equals(k.term()) && "ok".equals(k.definition())),
+                "a well-formed element after malformed ones must still be parsed");
+        assertTrue(result.keywords().stream().noneMatch(k -> k.term() == null || k.definition() == null),
+                "missing fields must normalize to empty strings, never null");
     }
 
     @Test

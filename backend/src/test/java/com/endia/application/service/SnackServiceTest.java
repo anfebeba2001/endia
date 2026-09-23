@@ -6,6 +6,7 @@ import com.endia.domain.enums.SnackGenerationPhase;
 import com.endia.domain.exception.EntityNotFoundException;
 import com.endia.domain.exception.ServiceUnavailableException;
 import com.endia.domain.model.Snack;
+import com.endia.domain.model.SnackKeyword;
 import com.endia.domain.model.Subtopic;
 import com.endia.domain.model.Theme;
 import com.endia.infrastructure.persistence.JpaSnackRepository;
@@ -243,6 +244,124 @@ class SnackServiceTest {
         assertEquals(formatted.whyItMatters(), snacks.get(0).getWhyItMatters());
         // Validation accepted the formatted content, so exactly one provider call happened.
         verify(llmProvider, times(1)).generateSnack("Photosynthesis", "Light reactions");
+    }
+
+    // ---- 013: keyword normalization at the service boundary (FR-007/FR-008/FR-009) ----
+
+    private LlmProvider.GeneratedSnack validSnackWithKeywords(List<SnackKeyword> keywords) {
+        return new LlmProvider.GeneratedSnack(
+                "The light reactions convert light into chemical energy.",
+                "Like a solar-powered factory floor.",
+                "Without them, no ATP or NADPH is produced.",
+                List.of("Calvin cycle", "Chloroplast"),
+                keywords);
+    }
+
+    private Snack generateWith(LlmProvider.GeneratedSnack generated) {
+        when(themeRepository.findById(themeId)).thenReturn(Optional.of(theme));
+        when(subtopicRepository.findById(subtopicId)).thenReturn(Optional.of(subtopic));
+        when(llmProvider.generateSnack("Photosynthesis", "Light reactions")).thenReturn(generated);
+        when(snackRepository.save(any(Snack.class))).thenAnswer(inv -> inv.getArgument(0));
+        return snackService.generateSnacks(themeId, List.of(subtopicId)).get(0);
+    }
+
+    @Test
+    void overLimitDefinitionIsTruncatedToFirstThreeTokens() {
+        Snack snack = generateWith(validSnackWithKeywords(List.of(
+                new SnackKeyword("mitosis", "one two three four five"))));
+
+        assertEquals(1, snack.getKeywords().size());
+        assertEquals("one two three", snack.getKeywords().get(0).definition());
+    }
+
+    @Test
+    void blankTermOrDefinitionIsDropped() {
+        Snack snack = generateWith(validSnackWithKeywords(List.of(
+                new SnackKeyword("  ", "cell division"),
+                new SnackKeyword("ATP", "   "),
+                new SnackKeyword("kept", "ok"))));
+
+        assertEquals(1, snack.getKeywords().size());
+        assertEquals("kept", snack.getKeywords().get(0).term());
+    }
+
+    @Test
+    void definitionBlankAfterTruncationIsDropped() {
+        Snack snack = generateWith(validSnackWithKeywords(List.of(
+                new SnackKeyword("x", "   "),
+                new SnackKeyword("y", "valid one"))));
+
+        assertEquals(1, snack.getKeywords().size());
+        assertEquals("y", snack.getKeywords().get(0).term());
+    }
+
+    @Test
+    void duplicateTermsAreDeduplicatedCaseInsensitivelyKeepingFirst() {
+        Snack snack = generateWith(validSnackWithKeywords(List.of(
+                new SnackKeyword("ATP", "energy currency"),
+                new SnackKeyword("atp", "other definition"),
+                new SnackKeyword("ATP", "third"))));
+
+        assertEquals(1, snack.getKeywords().size());
+        assertEquals("ATP", snack.getKeywords().get(0).term());
+        assertEquals("energy currency", snack.getKeywords().get(0).definition());
+    }
+
+    @Test
+    void valuesAreTrimmedAndOrderPreserved() {
+        Snack snack = generateWith(validSnackWithKeywords(List.of(
+                new SnackKeyword("  first  ", "  a b c  "),
+                new SnackKeyword("second", "d e"))));
+
+        assertEquals(List.of("first", "second"),
+                snack.getKeywords().stream().map(SnackKeyword::term).toList());
+        assertEquals("a b c", snack.getKeywords().get(0).definition());
+    }
+
+    @Test
+    void allInvalidKeywordsYieldEmptyListWithNoReRoll() {
+        Snack snack = generateWith(validSnackWithKeywords(List.of(
+                new SnackKeyword("", ""),
+                new SnackKeyword("  ", "  "))));
+
+        assertTrue(snack.getKeywords().isEmpty());
+        // Keywords never affect validity: exactly one provider call, no re-roll.
+        verify(llmProvider, times(1)).generateSnack("Photosynthesis", "Light reactions");
+    }
+
+    @Test
+    void nullKeywordListYieldsEmptyListWithoutReRoll() {
+        Snack snack = generateWith(validSnackWithKeywords(null));
+
+        assertTrue(snack.getKeywords().isEmpty());
+        verify(llmProvider, times(1)).generateSnack("Photosynthesis", "Light reactions");
+    }
+
+    @Test
+    void keywordsNeverCauseAReRollEvenWhenPresent() {
+        Snack snack = generateWith(validSnackWithKeywords(List.of(
+                new SnackKeyword("light", "electromagnetic radiation"))));
+
+        assertEquals(1, snack.getKeywords().size());
+        verify(llmProvider, times(1)).generateSnack("Photosynthesis", "Light reactions");
+    }
+
+    @Test
+    void invalidCoreFieldStillReRollsExactlyOnceWithKeywordsPresent() {
+        when(themeRepository.findById(themeId)).thenReturn(Optional.of(theme));
+        when(subtopicRepository.findById(subtopicId)).thenReturn(Optional.of(subtopic));
+        LlmProvider.GeneratedSnack bad = new LlmProvider.GeneratedSnack(
+                "Concept", "", "WhyItMatters", List.of("Related"),
+                List.of(new SnackKeyword("concept", "an idea")));
+        when(llmProvider.generateSnack("Photosynthesis", "Light reactions"))
+                .thenReturn(bad)
+                .thenReturn(validSnackWithKeywords(List.of(new SnackKeyword("light", "energy"))));
+        when(snackRepository.save(any(Snack.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Snack snack = snackService.generateSnacks(themeId, List.of(subtopicId)).get(0);
+
+        assertEquals("light", snack.getKeywords().get(0).term());
+        verify(llmProvider, times(2)).generateSnack("Photosynthesis", "Light reactions");
     }
 
     // ---- 009: the re-roll is exactly one (FR-005/FR-006/SC-002) ----
