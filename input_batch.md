@@ -42,21 +42,6 @@
 - [ ] If both primary and alternate providers fail, a meaningful error is returned (consistent with Task 5 surface behaviour).
 - [ ] Manual test simulates a primary-provider SERVICE_UNAVAILABLE and confirms the alternate provider is used and the flow still succeeds.
 
-### Task 8: Colored keywords with click-to-show short definition cards
-
-- Status: no iniciado
-- Ready: yes
-- Sources: item 12
-- Description: Have the snack output identify key terms with very short definitions (max 3 words each), render those terms in a distinct color, and show a short definition card when the user clicks a term.
-
-**Acceptance criteria:**
-- [ ] The snack prompt/contract returns, per snack, a set of key terms each with a definition of at most 3 words (e.g. a `keywords: [{ term, definition }]` field exposed through the snack API response).
-- [ ] Each key term that appears in the snack text is rendered in a color distinct from the surrounding body text.
-- [ ] Clicking/tapping a highlighted key term opens a short card/popover that displays that term's definition, and the definition never exceeds 3 words.
-- [ ] The definition card can be dismissed (click outside, close control, or Escape) without navigating away from the snack.
-- [ ] Terms not present in the rendered text are not highlighted, and a snack with no/empty keywords still renders normally without errors.
-- [ ] The highlight and definition card work on both desktop and mobile widths.
-
 ### Task 9: "Generate snack" from a keyword definition into the main topics backbone (no quiz)
 
 - Status: no iniciado
@@ -78,7 +63,6 @@
 - Task 3: Ready (awaiting implementation)
 - Task 4: Ready (awaiting implementation)
 - Task 6: Ready (awaiting implementation)
-- Task 8: Ready (awaiting implementation)
 - Task 9: Ready (awaiting implementation)
 
 12. Modify the prompt of the snacks to use bold and render it for important words and sentences, break the long paragraphs into bulletpoints and shorter paragrapsh, it is also needed that the key words are with a different color, so when the user clicks them, it shows a short card with definition of the word (max 3 words componning this keys meaning), also, this key meanings are going to have a "generate snack "button, when clicked, it adds a "meaning snack" into the main topics backbone, it has to have a different color and it does not have a quiz test like the other main snacks 
