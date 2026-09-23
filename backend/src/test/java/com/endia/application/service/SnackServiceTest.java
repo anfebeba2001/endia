@@ -217,6 +217,34 @@ class SnackServiceTest {
         verify(snackRepository).save(any(Snack.class));
     }
 
+    // ---- 012: formatted markup passes validation with no spurious re-roll (FR-006) ----
+
+    @Test
+    void formattedMarkupContentPassesValidationWithoutReRoll() {
+        when(themeRepository.findById(themeId)).thenReturn(Optional.of(theme));
+        when(subtopicRepository.findById(subtopicId)).thenReturn(Optional.of(subtopic));
+        LlmProvider.GeneratedSnack formatted = new LlmProvider.GeneratedSnack(
+                "**Light reactions** convert light into chemical energy.\n\n"
+                        + "They happen in two stages:\n"
+                        + "- **Capture** light energy.\n"
+                        + "- **Fix** carbon into sugar.",
+                "Think of a **solar-powered kitchen**.",
+                "Without them, **no ATP or NADPH** is produced.",
+                List.of("Calvin cycle", "Chloroplast"));
+        when(llmProvider.generateSnack("Photosynthesis", "Light reactions")).thenReturn(formatted);
+        when(snackRepository.save(any(Snack.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        List<Snack> snacks = snackService.generateSnacks(themeId, List.of(subtopicId));
+
+        assertEquals(1, snacks.size());
+        // The markup-bearing text is persisted verbatim and is not treated as empty.
+        assertEquals(formatted.concept(), snacks.get(0).getConcept());
+        assertEquals(formatted.metaphor(), snacks.get(0).getMetaphor());
+        assertEquals(formatted.whyItMatters(), snacks.get(0).getWhyItMatters());
+        // Validation accepted the formatted content, so exactly one provider call happened.
+        verify(llmProvider, times(1)).generateSnack("Photosynthesis", "Light reactions");
+    }
+
     // ---- 009: the re-roll is exactly one (FR-005/FR-006/SC-002) ----
 
     @Test

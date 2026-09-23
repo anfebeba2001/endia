@@ -2,10 +2,12 @@ import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { ThemeService } from '../../services/theme.service';
 import { ErrorService } from '../../services/error.service';
 import { ThemeHistory } from '../../models/history.model';
+import { RichTextComponent } from '../../components/rich-text/rich-text.component';
 
 @Component({
   selector: 'app-history',
   standalone: true,
+  imports: [RichTextComponent],
   templateUrl: './history.component.html',
   styleUrl: './history.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

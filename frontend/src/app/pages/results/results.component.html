@@ -81,8 +81,8 @@
           <h2 class="recap-card__title">Keep chewing on it</h2>
         </header>
         @if (recap.snack; as snack) {
-          <p class="recap-card__concept">{{ snack.concept }}</p>
-          <p class="recap-card__metaphor">{{ snack.metaphor }}</p>
+          <app-rich-text class="recap-card__concept" [text]="snack.concept" />
+          <app-rich-text class="recap-card__metaphor" [text]="snack.metaphor" />
         } @else {
           <p class="recap-card__concept">Revisit the {{ recap.subtopicName }} snack to reinforce the idea.</p>
         }

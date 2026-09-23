@@ -13,10 +13,12 @@ import {
   phaseMessage as phaseToMessage,
 } from '../../models/batch.model';
 import { Subject, takeUntil } from 'rxjs';
+import { RichTextComponent } from '../../components/rich-text/rich-text.component';
 
 @Component({
   selector: 'app-snacks',
   standalone: true,
+  imports: [RichTextComponent],
   templateUrl: './snacks.component.html',
   styleUrl: './snacks.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

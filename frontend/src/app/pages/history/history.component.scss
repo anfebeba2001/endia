@@ -147,18 +147,30 @@
     padding-top: 0;
     border-top: none;
   }
+}
 
-  p {
-    margin: 0 0 0.35rem;
-    font-size: 0.88rem;
-    line-height: 1.55;
-    text-wrap: pretty;
-    overflow-wrap: anywhere;
-  }
+.history-question p {
+  margin: 0 0 0.35rem;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
 
-  p:last-child {
-    margin-bottom: 0;
-  }
+.history-question p:last-child {
+  margin-bottom: 0;
+}
+
+/* Rich-text snack fields (feature 012): the shared renderer host keeps the per-field typography
+   (inherited by its inner <p>/<ul>); the block rhythm is normalised in the rich-text component.
+   The inter-field margin restores the pre-012 rhythm the old `p { margin: 0 0 0.35rem }` rule
+   provided, so concept / metaphor / why keep their separation instead of butting together. */
+.history-snack__concept,
+.history-snack__metaphor,
+.history-snack__why {
+  font-size: 0.88rem;
+  line-height: 1.55;
+  margin: 0 0 0.35rem;
 }
 
 .history-snack__concept {
@@ -171,6 +183,7 @@
 }
 
 .history-snack__why {
+  margin-bottom: 0;
   color: var(--muted);
 }
 

@@ -1,0 +1,43 @@
+// Shared rich-text renderer (feature 012).
+//
+// Typography is intentionally inherited: the host element keeps the page's existing class
+// (`.snack-card__concept`, `.recap-card__metaphor`, `.history-snack__why`, …) so colour, weight
+// and line-height tokens still apply. This file only normalises the inner block rhythm so the
+// generated <p>/<ul> match the previous single-<p> spacing.
+
+:host {
+  display: block;
+}
+
+.rich-text__p {
+  margin: 0 0 0.55rem;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+
+.rich-text__p:last-child {
+  margin-bottom: 0;
+}
+
+.rich-text__list {
+  margin: 0 0 0.55rem;
+  padding-left: 1.2rem;
+}
+
+.rich-text__list:last-child {
+  margin-bottom: 0;
+}
+
+.rich-text__item {
+  margin: 0 0 0.2rem;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+
+.rich-text__item:last-child {
+  margin-bottom: 0;
+}
+
+.rich-text__strong {
+  font-weight: 700;
+}

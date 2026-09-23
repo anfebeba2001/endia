@@ -4,10 +4,12 @@ import { AppStateService } from '../../services/app-state.service';
 import { QuizService } from '../../services/quiz.service';
 import { ErrorService } from '../../services/error.service';
 import { QuizSummaryResponse } from '../../models/quiz.model';
+import { RichTextComponent } from '../../components/rich-text/rich-text.component';
 
 @Component({
   selector: 'app-results',
   standalone: true,
+  imports: [RichTextComponent],
   templateUrl: './results.component.html',
   styleUrl: './results.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
