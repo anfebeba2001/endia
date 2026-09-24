@@ -201,6 +201,26 @@ test.describe('US1 — Create snack availability', () => {
     await expect(meaningIndexItems(page)).toHaveCount(0);
   });
 
+  test('no action is offered when the generated meaning is blank', async ({ page }) => {
+    await setupAllMocks(page);
+    await overrideBatchWithSnack(page);
+    // A successful response with an empty definition is not a valid generated meaning (FR-002).
+    await setupDefinitionsMock(page, {
+      generate: (body) => ({ status: 200, body: { term: body.term, definition: '' } }),
+    });
+    await goToSnackCard(page);
+
+    await defineTerm(page, '.snack-card__concept', 'chemical');
+
+    const card = page.locator(CARD);
+    await expect(card).toBeVisible();
+    await expect(card.locator('.keyword-card__term')).toHaveText('chemical');
+    await expect(card.locator('.keyword-card__loading')).toHaveCount(0);
+    await expect(card.locator('.keyword-card__error')).toHaveCount(0);
+    await expect(card.locator(GENERATE_BUTTON)).toHaveCount(0);
+    await expect(meaningIndexItems(page)).toHaveCount(0);
+  });
+
   test('a regular highlighted-keyword card still shows Generate snack', async ({ page }) => {
     await setupAllMocks(page);
     await overrideBatchWithSnack(page);
@@ -400,20 +420,26 @@ test.describe('US1 — creation and backbone integration', () => {
   test('a server-side alreadyExisted response resolves to done with one entry', async ({ page }) => {
     await setupAllMocks(page);
     await overrideBatchWithSnack(page);
+    // A fresh session: the client `hasGenerated` set is empty, so the card starts idle and a create
+    // is actually issued. The backend reports an idempotent hit, so the flow must trust the server
+    // response (done + exactly one entry) rather than the local generated-key set (FR-010/SC-002).
+    let calls = 0;
     await setupMeaningSnacksMock(page, {
-      generate: (body) => ({
-        status: 200,
-        body: {
-          // The backend reports an idempotent hit: the snack already exists for this (subtopic, term).
-          alreadyExisted: true,
-          meaningSnack: meaningSnack({
-            id: 'm-idempotent',
-            sourceSubtopicId: body.subtopicId,
-            sourceTerm: body.term,
-            sourceDefinition: body.definition,
-          }),
-        },
-      }),
+      generate: (body) => {
+        calls += 1;
+        return {
+          status: 200,
+          body: {
+            alreadyExisted: true,
+            meaningSnack: meaningSnack({
+              id: 'm-idempotent',
+              sourceSubtopicId: body.subtopicId,
+              sourceTerm: body.term,
+              sourceDefinition: body.definition,
+            }),
+          },
+        };
+      },
     });
     await goToSnackCard(page);
 
@@ -423,7 +449,9 @@ test.describe('US1 — creation and backbone integration', () => {
     await expect(page.locator(GENERATE_BUTTON)).toHaveText(/Added to your snacks/i, {
       timeout: 5000,
     });
+    await expect(page.locator(GENERATE_BUTTON)).toBeDisabled();
     await expect(meaningIndexItems(page)).toHaveCount(1);
+    expect(calls).toBe(1);
   });
 
   test('the captured source subtopic is a meaning entry sourceSubtopicId (Option A)', async ({
@@ -548,6 +576,33 @@ test.describe('US2 — the created snack is distinct and quiz-free', () => {
     await meaningIndexItems(page).click();
     await expect(page.locator('.snack-card--meaning')).toBeVisible();
     await expect(page.locator('.quiz-btn')).toHaveCount(0);
+  });
+
+  test('selecting the created meaning entry issues no quiz request and stays on /snacks', async ({
+    page,
+  }) => {
+    const quizRequests: string[] = [];
+    page.on('request', (req) => {
+      if (req.url().includes('/api/quiz')) {
+        quizRequests.push(req.url());
+      }
+    });
+
+    await createMeaningSnack(page);
+
+    // Select the created meaning entry: no quiz affordance, no quiz navigation.
+    await meaningIndexItems(page).click();
+    await expect(page.locator('.snack-card--meaning')).toBeVisible();
+    await expect(page.locator('.quiz-btn')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/snacks$/);
+
+    // Select the regular entry too: rendering it must not auto-request a quiz either.
+    await page.locator('.snack-index__item').first().click();
+    await expect(page.locator('.snack-card .quiz-btn')).toBeVisible();
+    await expect(page).toHaveURL(/\/snacks$/);
+
+    await page.waitForTimeout(300);
+    expect(quizRequests).toEqual([]);
   });
 });
 

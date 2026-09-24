@@ -74,6 +74,15 @@ in `custom-keyword-define.spec.ts`/`meaning-snacks.spec.ts`/`helpers.ts`; the ne
      - expect: the card shows the feature-014 action labelled `Generate snack` (not `Create snack`);
        behavior unchanged.
 
+#### 1.4. no-create-action-on-blank-definition
+**File:** `frontend/e2e/custom-keyword-create-snack.spec.ts` (NEW)
+
+**Steps:**
+  1. Hold a selection and click **Define** with a definitions mock that resolves 200 with an empty
+     `definition`.
+      - expect: the card opens for the term but shows **no** `.keyword-card__generate` action (no
+        loading, no error), and no meaning entry is added.
+
 ### 2. Creation & backbone integration (US1, FR-004..FR-009, SC-002/SC-003)
 
 **Seed:** `frontend/e2e/custom-keyword-create-snack.spec.ts` (`setupMeaningSnacksMock` + Define flow)
@@ -166,6 +175,15 @@ in `custom-keyword-define.spec.ts`/`meaning-snacks.spec.ts`/`helpers.ts`; the ne
      - expect: the meaning entry never triggers a quiz request/route and never shows a quiz affordance;
        selecting it always shows content (never a blank card).
 
+#### 3.4. selecting-the-created-snack-issues-no-quiz-request
+**File:** `frontend/e2e/custom-keyword-create-snack.spec.ts` (NEW)
+
+**Steps:**
+  1. Create the snack, then select the meaning entry, then the regular entry, watching network for
+     any `/api/quiz` request.
+      - expect: no `/api/quiz` request is ever issued, the meaning entry shows no `.quiz-btn`, and the
+        URL stays on `/snacks` for both selections (no auto-navigation to a quiz).
+
 ### 4. Persistence & retrieval (US3, FR-014/FR-015, SC-005)
 
 **Seed:** `frontend/e2e/custom-keyword-create-snack.spec.ts` (`stored[]` listing mock, mirroring
@@ -230,7 +248,7 @@ content)
 | Spec requirement | Scenario(s) | File |
 | --- | --- | --- |
 | FR-001 | 1.1 | `custom-keyword-create-snack.spec.ts` |
-| FR-002 | 1.1, 1.2 | `custom-keyword-create-snack.spec.ts` |
+| FR-002 | 1.1, 1.2, 1.4 | `custom-keyword-create-snack.spec.ts` |
 | FR-003 | 1.1, 1.3 | `custom-keyword-create-snack.spec.ts` |
 | FR-004 | 2.1 | `custom-keyword-create-snack.spec.ts` |
 | FR-005 | 2.1, 2.6 | `custom-keyword-create-snack.spec.ts` |
@@ -239,9 +257,9 @@ content)
 | FR-008 | 2.4 | `custom-keyword-create-snack.spec.ts` |
 | FR-009 | 2.1 | `custom-keyword-create-snack.spec.ts` |
 | FR-010 | 2.5 | `custom-keyword-create-snack.spec.ts` |
-| FR-011 | 3.1, 3.3 | `custom-keyword-create-snack.spec.ts` |
+| FR-011 | 3.1, 3.3, 3.4 | `custom-keyword-create-snack.spec.ts` |
 | FR-012 | 3.1 | `custom-keyword-create-snack.spec.ts` |
-| FR-013 | 3.2, 3.3 | `custom-keyword-create-snack.spec.ts` |
+| FR-013 | 3.2, 3.3, 3.4 | `custom-keyword-create-snack.spec.ts` |
 | FR-014 | 4.1 | `custom-keyword-create-snack.spec.ts` |
 | FR-015 | 4.2 | `custom-keyword-create-snack.spec.ts` |
 | FR-016 | Plan finding (no new entity/schema/endpoint); backend suites unchanged | `plan.md`, `backend/src/test/...` |
@@ -253,10 +271,10 @@ content)
 | FR-022 | 6.1 | `custom-keyword-define.spec.ts` |
 | FR-023 | 6.3 | `snack-keywords.spec.ts` |
 | FR-024 | 6.2, 6.3 | `frontend/e2e/*.spec.ts` |
-| SC-001 | 1.1, 1.2 | `custom-keyword-create-snack.spec.ts` |
+| SC-001 | 1.1, 1.2, 1.4 | `custom-keyword-create-snack.spec.ts` |
 | SC-002 | 2.1, 2.3, 2.5 | `custom-keyword-create-snack.spec.ts` |
 | SC-003 | 2.2, 2.4 | `custom-keyword-create-snack.spec.ts` |
-| SC-004 | 3.1–3.3 | `custom-keyword-create-snack.spec.ts` |
+| SC-004 | 3.1–3.4 | `custom-keyword-create-snack.spec.ts` |
 | SC-005 | 4.1, 4.2 | `custom-keyword-create-snack.spec.ts` |
 | SC-006 | 5.1, 5.2 | `custom-keyword-create-snack.spec.ts` |
 | SC-007 | Plan §Backend finding; backend suites unchanged | `plan.md`, `backend/src/test/...` |
