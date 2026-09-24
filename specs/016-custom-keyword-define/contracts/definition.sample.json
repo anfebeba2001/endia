@@ -1,0 +1,65 @@
+{
+  "_comment": "Feature 016 — custom definition generation contract samples. POST /api/definitions/generate.",
+
+  "request_success": {
+    "themeId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+    "term": "photosynthesis"
+  },
+
+  "response_success": {
+    "term": "photosynthesis",
+    "definition": "the process plants use to convert light energy into stored chemical energy"
+  },
+
+  "request_multi_word_term": {
+    "themeId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+    "term": "light-dependent reactions"
+  },
+
+  "response_multi_word_term": {
+    "term": "light-dependent reactions",
+    "definition": "the stage of photosynthesis that captures light energy to make ATP and NADPH"
+  },
+
+  "error_400_blank_term": {
+    "error": "VALIDATION_ERROR",
+    "message": "term must not be blank",
+    "field": "term",
+    "cause": null
+  },
+
+  "error_400_oversized_term": {
+    "error": "VALIDATION_ERROR",
+    "message": "Select no more than 10 words to define.",
+    "field": null,
+    "cause": null
+  },
+
+  "error_404_unknown_theme": {
+    "error": "NOT_FOUND",
+    "message": "Theme not found with ID: 00000000-0000-0000-0000-000000000000",
+    "field": null,
+    "cause": null
+  },
+
+  "error_503_llm_unavailable": {
+    "error": "SERVICE_UNAVAILABLE",
+    "message": "The AI service is temporarily unavailable. Please try again later.",
+    "field": null,
+    "cause": "UNAVAILABLE"
+  },
+
+  "error_503_blank_after_reroll": {
+    "error": "SERVICE_UNAVAILABLE",
+    "message": "The AI service returned an incomplete definition. Please try again.",
+    "field": null,
+    "cause": null
+  },
+
+  "error_500_internal": {
+    "error": "INTERNAL_ERROR",
+    "message": "An unexpected error occurred",
+    "field": null,
+    "cause": null
+  }
+}

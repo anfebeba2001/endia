@@ -36,6 +36,13 @@ public interface LlmProvider {
      */
     GeneratedMeaningSnack generateMeaningSnack(String theme, String term, String definition);
 
+    /**
+     * Generate a short definition (feature 016, at most 20 words) for an arbitrary {@code term}
+     * within a {@code theme}. Returns a plain-text, provider-agnostic result validated and bounded
+     * by {@code DefinitionService}; never persisted.
+     */
+    GeneratedDefinition generateDefinition(String theme, String term);
+
     record GeneratedSnack(String concept, String metaphor, String whyItMatters, List<String> related,
                           List<SnackKeyword> keywords) {
 
@@ -50,6 +57,10 @@ public interface LlmProvider {
      * quiz fields: a meaning snack is a distinct kind (FR-007/FR-008/FR-016).
      */
     record GeneratedMeaningSnack(String concept, String metaphor, String whyItMatters, List<String> related) {
+    }
+
+    /** Provider-agnostic result of a short-definition generation (feature 016, ≤20 words). */
+    record GeneratedDefinition(String definition) {
     }
 
     record GeneratedQuestion(

@@ -107,8 +107,19 @@ public class OpenAiLlmProvider implements LlmProvider {
     }
 
     @Override
-    public List<GeneratedQuestion> generateQuiz(String theme, String subtopicName, int count, DragDropVariant variant) {
-        String response = callLlm(templates.generateQuiz(theme, subtopicName, count, variant));
+    public GeneratedDefinition generateDefinition(String theme, String term) {
+        String response = callLlm(templates.generateDefinition(theme, term));
+        try {
+            JsonNode node = objectMapper.readTree(response);
+            // Defensive parse: a missing field yields null; extra fields are ignored.
+            return new GeneratedDefinition(node.path("definition").asText(null));
+        } catch (Exception e) {
+            throw malformed("Failed to parse LLM definition response", e);
+        }
+    }
+
+    @Override
+    public List<GeneratedQuestion> generateQuiz(String theme, String subtopicName, int count, DragDropVariant variant) {        String response = callLlm(templates.generateQuiz(theme, subtopicName, count, variant));
         try {
             JsonNode root = objectMapper.readTree(response);
             List<GeneratedQuestion> result = new ArrayList<>();

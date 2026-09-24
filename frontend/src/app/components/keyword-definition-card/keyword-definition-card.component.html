@@ -24,7 +24,18 @@
         ×
       </button>
       <p class="keyword-card__term">{{ kw.term }}</p>
-      <p class="keyword-card__definition">{{ kw.definition }}</p>
+      @if (definitionLoading()) {
+        <p class="keyword-card__loading" role="status">
+          <span class="spinner spinner--sm" aria-hidden="true"></span>
+          Defining…
+        </p>
+      } @else if (kw.definition) {
+        <p class="keyword-card__definition">{{ kw.definition }}</p>
+      }
+
+      @if (definitionError(); as defErr) {
+        <p class="keyword-card__error" role="alert">{{ defErr }}</p>
+      }
 
       @if (generateEnabled()) {
         <!--

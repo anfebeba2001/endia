@@ -222,6 +222,10 @@ export async function setupAllMocks(page: Page) {
   // Feature 014: the snacks page now issues GET /api/meaning-snacks on load; a default empty
   // listing keeps every existing spec deterministic (FR-020/SC-009).
   await setupMeaningSnacksMock(page);
+  // Feature 016: a benign default POST /api/definitions/generate keeps every existing spec
+  // deterministic. No existing spec activates the selection-Define trigger, so no request is
+  // expected; the default is a safety net (FR-004/SC-007).
+  await setupDefinitionsMock(page);
 }
 
 // ─── Feature 014 — meaning snacks ────────────────────────────────────────────
@@ -353,6 +357,49 @@ export async function setupMeaningSnacksMock(
     }
 
     await route.continue();
+  });
+}
+
+// ─── Feature 016 — custom definition generation ─────────────────────────────
+
+export interface DefinitionGenerateBody {
+  themeId: string;
+  term: string;
+}
+
+export interface DefinitionsMockOptions {
+  /**
+   * POST /api/definitions/generate reply. A function receives the parsed request body and returns a
+   * {@link MockReply}; the default echoes `{ term, definition }`.
+   */
+  generate?: MockReply | ((body: DefinitionGenerateBody) => MockReply);
+}
+
+function defaultDefinitionReply(body: DefinitionGenerateBody): MockReply {
+  return {
+    status: 200,
+    body: {
+      term: body.term,
+      definition: 'a short generated definition of the selected term',
+    },
+  };
+}
+
+/**
+ * Mock the definition-generation endpoint (feature 016): `POST /api/definitions/generate`.
+ * Register it after `setupAllMocks` to override the benign default.
+ */
+export async function setupDefinitionsMock(
+  page: Page,
+  opts?: DefinitionsMockOptions,
+): Promise<void> {
+  await page.route('**/api/definitions/generate', async (route: Route) => {
+    const body = JSON.parse(route.request().postData() || '{}') as DefinitionGenerateBody;
+    const reply =
+      typeof opts?.generate === 'function'
+        ? opts.generate(body)
+        : (opts?.generate ?? defaultDefinitionReply(body));
+    await fulfillReply(route, reply);
   });
 }
 

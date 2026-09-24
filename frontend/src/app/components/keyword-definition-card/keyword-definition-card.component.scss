@@ -93,6 +93,17 @@
   overflow-wrap: anywhere;
 }
 
+/* Feature 016 — custom-definition loading state (in place of the definition paragraph). */
+.keyword-card__loading {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
 /* Feature 014 — "Generate snack" action (idle / loading / done) and inline error. */
 .keyword-card__action {
   margin-top: 0.65rem;
