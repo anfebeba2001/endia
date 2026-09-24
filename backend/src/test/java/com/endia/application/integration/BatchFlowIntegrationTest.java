@@ -22,7 +22,9 @@ import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -87,10 +89,22 @@ class BatchFlowIntegrationTest {
         itemRepository.save(item2);
 
         // Progressive read: per-item status observable from the DB for the poller.
+        // findBySessionId has no defined row order, so assert on the set of statuses
+        // and locate the failed item by its status instead of by position.
         List<StudySessionItem> items = itemRepository.findBySessionId(session.getId());
         assertEquals(2, items.size());
-        assertEquals(GenerationStatus.READY, items.get(0).getSnackStatus());
-        assertEquals(LlmErrorCause.QUOTA, items.get(1).getSnackCause());
+
+        Set<GenerationStatus> snackStatuses = new HashSet<>();
+        for (StudySessionItem item : items) {
+            snackStatuses.add(item.getSnackStatus());
+        }
+        assertEquals(Set.of(GenerationStatus.READY, GenerationStatus.FAILED), snackStatuses);
+
+        StudySessionItem failed = items.stream()
+                .filter(item -> item.getSnackStatus() == GenerationStatus.FAILED)
+                .findFirst()
+                .orElseThrow();
+        assertEquals(LlmErrorCause.QUOTA, failed.getSnackCause());
         assertNotNull(session.getId());
     }
 

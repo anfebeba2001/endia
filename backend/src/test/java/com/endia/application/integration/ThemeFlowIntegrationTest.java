@@ -7,6 +7,7 @@ import com.endia.domain.model.Theme;
 import com.endia.infrastructure.persistence.JpaSnackRepository;
 import com.endia.infrastructure.persistence.JpaSubtopicRepository;
 import com.endia.infrastructure.persistence.JpaThemeRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,6 +55,13 @@ class ThemeFlowIntegrationTest {
     private JpaSnackRepository snackRepository;
     @Autowired
     private SubtopicService subtopicService;
+
+    @BeforeEach
+    void cleanDatabase() {
+        snackRepository.deleteAll();
+        subtopicRepository.deleteAll();
+        themeRepository.deleteAll();
+    }
 
     @Test
     void contextLoads() {
