@@ -50,6 +50,13 @@ export class KeywordDefinitionCardComponent implements OnChanges {
   /** Feature 014: a user-safe error to show inline, or null (FR-004). */
   readonly generateError = input<string | null>(null);
 
+  /**
+   * Feature 017: true when the card was opened by the custom-Define flow. Selects the action label
+   * (`Create snack`/`Creating…`) for the reused feature-014 action slot; default `false` so every
+   * feature-013/014 surface (results/history/regular keyword) is unchanged (FR-001/FR-003).
+   */
+  readonly customDefinition = input<boolean>(false);
+
   /** Feature 016: whether a custom definition is currently being generated (loading state). */
   readonly definitionLoading = input<boolean>(false);
 

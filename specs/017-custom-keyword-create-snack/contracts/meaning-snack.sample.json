@@ -1,0 +1,74 @@
+{
+  "_comment": "Feature 017 — custom-keyword 'Create snack' reuses the feature-014 /api/meaning-snacks contract UNCHANGED. These are example payloads for the custom flow.",
+  "generateRequest_customKeyword": {
+    "themeId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+    "subtopicId": "6f1c2a9e-1b2c-4d3e-8f90-0a1b2c3d4e5f",
+    "term": "chlorophyll",
+    "definition": "the green pigment that absorbs light energy"
+  },
+  "generateResponse_success": {
+    "alreadyExisted": false,
+    "meaningSnack": {
+      "id": "c0ffee00-1111-2222-3333-444455556666",
+      "kind": "MEANING",
+      "themeId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+      "sourceSubtopicId": "6f1c2a9e-1b2c-4d3e-8f90-0a1b2c3d4e5f",
+      "sourceSubtopicName": "Light reactions",
+      "sourceTerm": "chlorophyll",
+      "sourceDefinition": "the green pigment that absorbs light energy",
+      "concept": "**Chlorophyll** is the pigment that captures light energy in the chloroplast.",
+      "metaphor": "Think of it as a **solar panel** tuned to sunlight.",
+      "whyItMatters": "It is the entry point for nearly all energy in a food chain.",
+      "related": ["Photosynthesis", "Thylakoid"],
+      "createdAt": "2026-09-24T12:00:00"
+    }
+  },
+  "generateResponse_alreadyExisted": {
+    "alreadyExisted": true,
+    "meaningSnack": {
+      "id": "c0ffee00-1111-2222-3333-444455556666",
+      "kind": "MEANING",
+      "themeId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+      "sourceSubtopicId": "6f1c2a9e-1b2c-4d3e-8f90-0a1b2c3d4e5f",
+      "sourceSubtopicName": "Light reactions",
+      "sourceTerm": "chlorophyll",
+      "sourceDefinition": "the green pigment that absorbs light energy",
+      "concept": "**Chlorophyll** is the pigment that captures light energy in the chloroplast.",
+      "metaphor": "Think of it as a **solar panel** tuned to sunlight.",
+      "whyItMatters": "It is the entry point for nearly all energy in a food chain.",
+      "related": ["Photosynthesis", "Thylakoid"],
+      "createdAt": "2026-09-24T12:00:00"
+    }
+  },
+  "listResponse": {
+    "themeId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+    "meaningSnacks": [
+      {
+        "id": "c0ffee00-1111-2222-3333-444455556666",
+        "kind": "MEANING",
+        "themeId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+        "sourceSubtopicId": "6f1c2a9e-1b2c-4d3e-8f90-0a1b2c3d4e5f",
+        "sourceSubtopicName": "Light reactions",
+        "sourceTerm": "chlorophyll",
+        "sourceDefinition": "the green pigment that absorbs light energy",
+        "concept": "**Chlorophyll** is the pigment that captures light energy in the chloroplast.",
+        "metaphor": "Think of it as a **solar panel** tuned to sunlight.",
+        "whyItMatters": "It is the entry point for nearly all energy in a food chain.",
+        "related": ["Photosynthesis", "Thylakoid"],
+        "createdAt": "2026-09-24T12:00:00"
+      }
+    ]
+  },
+  "error_503": {
+    "error": "SERVICE_UNAVAILABLE",
+    "message": "The AI service is temporarily unavailable. Please try again later.",
+    "field": null,
+    "cause": "UNAVAILABLE"
+  },
+  "error_400_blankDefinition": {
+    "error": "VALIDATION_ERROR",
+    "message": "definition must not be blank",
+    "field": "definition",
+    "cause": null
+  }
+}
