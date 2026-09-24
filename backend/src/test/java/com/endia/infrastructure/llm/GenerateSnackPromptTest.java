@@ -89,12 +89,14 @@ class GenerateSnackPromptTest {
     }
 
     @Test
-    void promptLimitsDefinitionsToThreeWordsAndGuidesTwoToFive() {
+    void promptLimitsDefinitionsToTwentyWordsAndGuidesTwoToFive() {
         String prompt = templates.generateSnack("Photosynthesis", "Light reactions");
         String lower = prompt.toLowerCase();
 
-        assertTrue(lower.contains("3 words") || lower.contains("three words"),
-                "prompt must state the at-most-3-words definition limit");
+        assertTrue(lower.contains("20 words") || lower.contains("twenty words"),
+                "prompt must state the at-most-20-words definition limit");
+        assertFalse(lower.contains("3 words") || lower.contains("three words"),
+                "prompt must not state the old at-most-3-words definition limit");
         assertTrue(lower.contains("2-5") || lower.contains("2–5"),
                 "prompt must state the 2-5 keyword guideline");
     }

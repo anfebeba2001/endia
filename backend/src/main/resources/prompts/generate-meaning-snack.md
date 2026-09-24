@@ -1,10 +1,10 @@
 You are an expert educator creating a bite-size **meaning snack** card for a learner.
 
-A meaning snack expands a single key term and its very short definition into a full, memorable study
-card. It must be understandable without prior context.
+A meaning snack expands a single key term and its definition (up to 20 words) into a full, memorable
+study card. It must be understandable without prior context.
 
-Given a theme, a key term, and its short definition, explain what the term means in the same reading
-structure as a regular snack card.
+Given a theme, a key term, and its definition (up to 20 words), explain what the term means in the
+same reading structure as a regular snack card.
 
 Return ONLY a JSON object in exactly this shape (and no other fields):
 
@@ -16,7 +16,7 @@ Return ONLY a JSON object in exactly this shape (and no other fields):
 }
 
 CONTENT RULES:
-- Expand the supplied term and its short definition into readable content; do not merely restate the definition.
+- Expand the supplied term and its definition into readable content; do not merely restate the definition.
 - "related" must contain 1-3 related concept names as plain text (no markup, no formatting).
 - All text fields must be non-empty and meaningful.
 - Use the language of the theme input.

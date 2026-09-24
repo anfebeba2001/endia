@@ -4,7 +4,7 @@ import com.endia.domain.model.SnackKeyword;
 
 /**
  * API representation of a snack keyword (feature 013, FR-006): a plain-text {@code term} with a
- * very short {@code definition} (at most 3 words, guaranteed by service normalization).
+ * short {@code definition} (at most 20 words, guaranteed by service normalization; feature 015).
  */
 public record SnackKeywordDto(String term, String definition) {
 

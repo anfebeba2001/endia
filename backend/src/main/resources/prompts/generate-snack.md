@@ -10,15 +10,15 @@ Return ONLY a JSON object in exactly this shape:
   "whyItMatters": "Why this matters, its stakes, and 1-2 common pitfalls or misconceptions learners should avoid (2-4 sentences).",
   "related": ["Related concept 1", "Related concept 2", "Related concept 3"],
   "keywords": [
-    { "term": "Key term 1", "definition": "at most three words" },
-    { "term": "Key term 2", "definition": "at most three words" }
+    { "term": "Key term 1", "definition": "at most twenty words" },
+    { "term": "Key term 2", "definition": "at most twenty words" }
   ]
 }
 
 KEYWORDS RULES:
 - "keywords" must be an array of objects, each with exactly two fields: "term" and "definition".
 - Provide 2-5 keywords for a non-trivial snack. A short snack may have fewer.
-- Each "definition" must be a very short gloss of at most 3 words (never more than three words).
+- Each "definition" must be a gloss of at most 20 words (never more than twenty words).
 - Each "term" must appear verbatim in the snack body text (in "concept", "metaphor" or "whyItMatters"), exactly as written, so it can be located and highlighted.
 - Keyword text is plain text only: do NOT use any markup (no bold markers, no HTML, no links, no formatting).
 

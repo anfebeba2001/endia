@@ -9,7 +9,7 @@ import { setupAllMocks, angularSubmitHome } from './helpers';
  *    absent terms produce no artifact; matching is case-insensitive, literal, whole-word,
  *    longest-wins/non-overlapping; a term inside `**bold**` is both emphasized and highlighted;
  *    `related` is never highlighted.
- *  - US3 (FR-018..FR-023): click/tap opens a card with only the ≤3-word definition; outside-click,
+ *  - US3 (FR-018..FR-023): click/tap opens a card with the definition (up to 20 words); outside-click,
  *    the close control and Escape dismiss it without navigation; opening a different term closes
  *    the previous card; keyboard activation works and Escape returns focus; desktop + mobile.
  *  - US4 (FR-026..FR-029): untrusted keyword term/definition payloads execute nothing, inject no
@@ -52,6 +52,36 @@ const KEYWORD_SNACK: FixtureSnack = {
     { term: 'light', definition: 'electromagnetic energy' },
     { term: 'chlorophyll', definition: 'green pigment' },
   ],
+};
+
+/** A definition at the 20-word upper bound (feature 015, FR-001/FR-015/SC-004). */
+const TWENTY_WORD_DEFINITION = Array.from({ length: 20 }, (_, i) => `word${i + 1}`).join(' ');
+
+const TWENTY_WORD_SNACK: FixtureSnack = {
+  id: 'snack-kw-20',
+  subtopicId: 'sub-001',
+  subtopicName: 'Light reactions',
+  concept:
+    'Photosynthesis converts light into chemical energy. photosynthesis also releases oxygen.',
+  metaphor: 'Think of a leaf as a solar kitchen that cooks sugar.',
+  whyItMatters: 'Plants build themselves from light, and light drives everything.',
+  related: ['Chlorophyll', 'Glucose'],
+  keywords: [{ term: 'photosynthesis', definition: TWENTY_WORD_DEFINITION }],
+};
+
+/** A single very long token (feature 015 edge case: must wrap, not overflow or clip). */
+const LONG_TOKEN_DEFINITION = 'supercalifragilisticexpialidocious'.repeat(12);
+
+const LONG_TOKEN_SNACK: FixtureSnack = {
+  id: 'snack-kw-long',
+  subtopicId: 'sub-001',
+  subtopicName: 'Light reactions',
+  concept:
+    'Photosynthesis converts light into chemical energy. photosynthesis also releases oxygen.',
+  metaphor: 'Think of a leaf as a solar kitchen that cooks sugar.',
+  whyItMatters: 'Plants build themselves from light, and light drives everything.',
+  related: ['Chlorophyll', 'Glucose'],
+  keywords: [{ term: 'photosynthesis', definition: LONG_TOKEN_DEFINITION }],
 };
 
 const OVERLAP_SNACK: FixtureSnack = {
@@ -323,7 +353,7 @@ test.describe('US2 — key terms are highlighted in a distinct color', () => {
 // ─── US3: definition card ─────────────────────────────────────────────────────
 
 test.describe('US3 — clicking/tapping a term opens a dismissible definition card', () => {
-  test('click opens a card showing only the ≤3-word definition; outside-click closes it', async ({
+  test('click opens a card showing the definition (up to 20 words); outside-click closes it', async ({
     page,
   }) => {
     await setupFixtures(page);
@@ -336,7 +366,7 @@ test.describe('US3 — clicking/tapping a term opens a dismissible definition ca
     await expect(card.locator('.keyword-card__definition')).toHaveText('light to sugar');
     expect(
       (await card.locator('.keyword-card__definition').innerText()).split(/\s+/).length,
-    ).toBeLessThanOrEqual(3);
+    ).toBeLessThanOrEqual(20);
 
     // Outside pointerdown dismisses with no navigation.
     await page.locator('.page__title').click();
@@ -428,6 +458,76 @@ test.describe('US3 — clicking/tapping a term opens a dismissible definition ca
         () => document.documentElement.scrollWidth > window.innerWidth + 1,
       );
       expect(overflow, `no horizontal overflow at ${viewport.width}px`).toBe(false);
+    }
+  });
+
+  test('a 20-word definition wraps in the card with no horizontal overflow', async ({ page }) => {
+    for (const viewport of [
+      { width: 1280, height: 800 },
+      { width: 375, height: 720 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await setupFixtures(page, TWENTY_WORD_SNACK);
+      await goToSnackCard(page);
+
+      await keywordIn(page, '.snack-card__concept', 'photosynthesis').first().click();
+      const definition = page.locator('.keyword-card__definition');
+      await expect(definition).toBeVisible();
+      await expect(definition).toHaveText(TWENTY_WORD_DEFINITION);
+      expect(
+        (await definition.innerText()).split(/\s+/).length,
+      ).toBeLessThanOrEqual(20);
+
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth > window.innerWidth + 1,
+      );
+      expect(
+        overflow,
+        `no horizontal overflow for a 20-word definition at ${viewport.width}px`,
+      ).toBe(false);
+    }
+  });
+
+  test('a single very long token definition wraps in the card with no clipping or overflow', async ({
+    page,
+  }) => {
+    for (const viewport of [
+      { width: 1280, height: 800 },
+      { width: 375, height: 720 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await setupFixtures(page, LONG_TOKEN_SNACK);
+      await goToSnackCard(page);
+
+      await keywordIn(page, '.snack-card__concept', 'photosynthesis').first().click();
+      const card = page.locator('.keyword-card');
+      const definition = page.locator('.keyword-card__definition');
+      await expect(definition).toBeVisible();
+      await expect(definition).toHaveText(LONG_TOKEN_DEFINITION);
+
+      // `overflow-wrap: anywhere` keeps the unbroken token inside the card: no horizontal or
+      // vertical content overflow, so nothing is clipped.
+      const metrics = await definition.evaluate((el) => ({
+        scrollWidth: el.scrollWidth,
+        clientWidth: el.clientWidth,
+        scrollHeight: el.scrollHeight,
+        clientHeight: el.clientHeight,
+      }));
+      expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1);
+      expect(metrics.scrollHeight).toBeLessThanOrEqual(metrics.clientHeight + 1);
+
+      // Narrow viewports present the card as the bottom sheet (feature 013 fallback).
+      if (viewport.width < 520) {
+        await expect(card).toHaveClass(/keyword-card--sheet/);
+      }
+
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth > window.innerWidth + 1,
+      );
+      expect(
+        overflow,
+        `no horizontal overflow for a long-token definition at ${viewport.width}px`,
+      ).toBe(false);
     }
   });
 

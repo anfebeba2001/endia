@@ -679,6 +679,61 @@ test.describe('US4 — robustness of meaning-snack rendering', () => {
   });
 });
 
+// ─── Feature 015: a 20-word definition reaches generation un-truncated ───────
+
+/** A definition at the 20-word upper bound (feature 015, FR-001/FR-004/SC-001). */
+const TWENTY_WORD_DEFINITION = Array.from({ length: 20 }, (_, i) => `word${i + 1}`).join(' ');
+
+const TWENTY_WORD_KEYWORD_SNACK: FixtureSnack = {
+  id: 'snack-kw-20',
+  subtopicId: 'sub-001',
+  subtopicName: 'Light reactions',
+  concept: 'Photosynthesis converts light into chemical energy.',
+  metaphor: 'Think of a leaf as a solar kitchen.',
+  whyItMatters: 'Nearly every food chain starts here.',
+  related: ['Chlorophyll', 'Glucose'],
+  keywords: [{ term: 'photosynthesis', definition: TWENTY_WORD_DEFINITION }],
+};
+
+test.describe('Feature 015 — a 20-word definition is sent to generation in full', () => {
+  test('Generate snack posts the full 20-word definition without truncation', async ({ page }) => {
+    await setupAllMocks(page);
+    await overrideBatchWithSnack(page, TWENTY_WORD_KEYWORD_SNACK);
+    let sentDefinition: string | undefined;
+    await setupMeaningSnacksMock(page, {
+      generate: (body) => {
+        sentDefinition = body.definition;
+        return {
+          status: 200,
+          body: {
+            alreadyExisted: false,
+            meaningSnack: meaningSnack({
+              sourceSubtopicId: body.subtopicId,
+              sourceTerm: body.term,
+              sourceDefinition: body.definition,
+            }),
+          },
+        };
+      },
+    });
+    await goToSnackCard(page);
+    await openDefinitionCard(page);
+
+    // The card shows all 20 words...
+    await expect(page.locator('.keyword-card__definition')).toHaveText(TWENTY_WORD_DEFINITION);
+
+    // ...and the frontend sends them all to the generation endpoint, untruncated (FR-004).
+    await page.locator('.keyword-card__generate').click();
+    await expect(page.locator('.keyword-card__generate')).toHaveText(/Added to your snacks/i, {
+      timeout: 5000,
+    });
+
+    expect(sentDefinition).toBe(TWENTY_WORD_DEFINITION);
+    expect((sentDefinition ?? '').split(/\s+/).length).toBe(20);
+    await expect(meaningIndexItems(page)).toHaveCount(1);
+  });
+});
+
 // ─── US1: the action is offered on all three definition-card surfaces ────────
 
 const HISTORY_THEME: ThemeHistory[] = [

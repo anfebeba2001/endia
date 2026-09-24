@@ -265,13 +265,56 @@ class SnackServiceTest {
         return snackService.generateSnacks(themeId, List.of(subtopicId)).get(0);
     }
 
+    private static String tokens(int count) {
+        return java.util.stream.IntStream.rangeClosed(1, count)
+                .mapToObj(i -> "w" + i)
+                .collect(java.util.stream.Collectors.joining(" "));
+    }
+
     @Test
-    void overLimitDefinitionIsTruncatedToFirstThreeTokens() {
+    void overLimitDefinitionIsTruncatedToFirstTwentyTokens() {
         Snack snack = generateWith(validSnackWithKeywords(List.of(
-                new SnackKeyword("mitosis", "one two three four five"))));
+                new SnackKeyword("mitosis", tokens(25)))));
 
         assertEquals(1, snack.getKeywords().size());
-        assertEquals("one two three", snack.getKeywords().get(0).definition());
+        assertEquals(tokens(20), snack.getKeywords().get(0).definition());
+    }
+
+    @Test
+    void nineteenTokenDefinitionIsKeptInFull() {
+        Snack snack = generateWith(validSnackWithKeywords(List.of(
+                new SnackKeyword("mitosis", tokens(19)))));
+
+        assertEquals(1, snack.getKeywords().size());
+        assertEquals(tokens(19), snack.getKeywords().get(0).definition());
+    }
+
+    @Test
+    void twentyTokenDefinitionIsKeptInFull() {
+        Snack snack = generateWith(validSnackWithKeywords(List.of(
+                new SnackKeyword("mitosis", tokens(20)))));
+
+        assertEquals(1, snack.getKeywords().size());
+        assertEquals(tokens(20), snack.getKeywords().get(0).definition());
+    }
+
+    @Test
+    void twentyOneTokenDefinitionIsTruncatedToFirstTwenty() {
+        Snack snack = generateWith(validSnackWithKeywords(List.of(
+                new SnackKeyword("mitosis", tokens(21)))));
+
+        assertEquals(1, snack.getKeywords().size());
+        assertEquals(tokens(20), snack.getKeywords().get(0).definition());
+    }
+
+    @Test
+    void definitionBetweenFourAndTwentyTokensIsNotTruncated() {
+        Snack snack = generateWith(validSnackWithKeywords(List.of(
+                new SnackKeyword("mitosis", "one two three four five six seven eight"))));
+
+        assertEquals(1, snack.getKeywords().size());
+        assertEquals("one two three four five six seven eight",
+                snack.getKeywords().get(0).definition());
     }
 
     @Test

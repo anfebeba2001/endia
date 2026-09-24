@@ -50,7 +50,8 @@ public class Snack {
     private List<String> related = new ArrayList<>();
 
     /**
-     * Key terms with very short definitions (feature 013, FR-011/FR-012). Additive and nullable:
+     * Key terms with short definitions (at most 20 words; feature 013, FR-011/FR-012; feature 015).
+     * Additive and nullable:
      * pre-existing rows load as {@code NULL} and are read as an empty list by the converter.
      */
     @Convert(converter = JpaSnackKeywordListConverter.class)

@@ -105,16 +105,101 @@ class MeaningSnackServiceTest {
         verifyNoInteractions(meaningSnackWriter);
     }
 
-    @Test
-    void definitionIsTruncatedToFirstThreeTokens() {
+    private static String tokens(int count) {
+        return java.util.stream.IntStream.rangeClosed(1, count)
+                .mapToObj(i -> "w" + i)
+                .collect(java.util.stream.Collectors.joining(" "));
+    }
+
+    private static String longTokens(int count, int tokenLength) {
+        return java.util.stream.IntStream.range(0, count)
+                .mapToObj(i -> "x".repeat(tokenLength))
+                .collect(java.util.stream.Collectors.joining(" "));
+    }
+
+    private String generateAndCaptureSourceDefinition(String definition) {
         stubResolvable();
         when(llmProvider.generateMeaningSnack(anyString(), anyString(), anyString())).thenReturn(valid());
         when(meaningSnackWriter.insert(any(MeaningSnack.class))).thenAnswer(inv -> inv.getArgument(0));
+        return service.generate(themeId, subtopicId, "photosynthesis", definition)
+                .snack().getSourceDefinition();
+    }
 
-        MeaningSnackService.GenerateResult result =
-                service.generate(themeId, subtopicId, "photosynthesis", "light to sugar and more words");
+    @Test
+    void definitionIsTruncatedToFirstTwentyTokens() {
+        String captured = generateAndCaptureSourceDefinition(tokens(25));
 
-        assertEquals("light to sugar", result.snack().getSourceDefinition());
+        assertEquals(tokens(20), captured);
+    }
+
+    @Test
+    void definitionBetweenFourAndTwentyTokensIsKeptInFull() {
+        String captured = generateAndCaptureSourceDefinition("light to sugar and more words");
+
+        assertEquals("light to sugar and more words", captured);
+    }
+
+    @Test
+    void nineteenTokenDefinitionIsKeptInFull() {
+        String captured = generateAndCaptureSourceDefinition(tokens(19));
+
+        assertEquals(tokens(19), captured);
+    }
+
+    @Test
+    void twentyTokenDefinitionIsKeptInFull() {
+        String captured = generateAndCaptureSourceDefinition(tokens(20));
+
+        assertEquals(tokens(20), captured);
+    }
+
+    @Test
+    void twentyOneTokenDefinitionIsTruncatedToFirstTwenty() {
+        String captured = generateAndCaptureSourceDefinition(tokens(21));
+
+        assertEquals(tokens(20), captured);
+    }
+
+    @Test
+    void sourceDefinitionOver200CharsIsClampedOnAWordBoundary() {
+        // 20 tokens of 10 characters = 219 chars: over the 200-char column, but exactly at the
+        // token bound, so only the FR-019 character clamp applies.
+        String original = longTokens(20, 10);
+
+        String captured = generateAndCaptureSourceDefinition(original);
+
+        // 18 whole tokens (197 chars) is the longest word-boundary prefix within 200 chars;
+        // the 19th token would push the length to 208. This proves the clamp is applied and
+        // maximal, not merely that some short prefix was returned.
+        assertEquals(197, captured.length(),
+                "clamp must keep the longest word-boundary prefix that fits VARCHAR(200)");
+        assertEquals(18, captured.split(" ").length,
+                "clamp must keep every whole word that fits, never stopping early");
+        assertFalse(captured.isEmpty(), "clamped source definition must stay non-empty");
+        assertFalse(captured.endsWith(" "), "clamp must not leave a trailing space");
+        assertEquals(original.substring(0, captured.length()), captured,
+                "clamp must be a prefix of the original, cut on a boundary");
+        // Every retained token is a whole 10-char word: no word was split.
+        for (String token : captured.split(" ")) {
+            assertEquals(10, token.length(), "clamp must never split a word");
+        }
+    }
+
+    @Test
+    void sourceDefinitionUnder200CharsIsUnchanged() {
+        String original = longTokens(20, 8); // 20*8 + 19 = 179 chars, under the column bound.
+
+        assertEquals(original, generateAndCaptureSourceDefinition(original));
+    }
+
+    @Test
+    void singleTokenLongerThan200CharsFallsBackToAHardCut() {
+        String original = "x".repeat(250);
+
+        String captured = generateAndCaptureSourceDefinition(original);
+
+        assertEquals(200, captured.length(), "a single over-long token falls back to a hard 200-char cut");
+        assertEquals(original.substring(0, 200), captured);
     }
 
     @Test

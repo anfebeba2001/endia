@@ -34,6 +34,16 @@ public class MeaningSnackService {
 
     private static final Logger log = LoggerFactory.getLogger(MeaningSnackService.class);
 
+    /** Maximum number of whitespace-separated tokens kept in a source definition (feature 015). */
+    private static final int MAX_DEFINITION_TOKENS = 20;
+
+    /**
+     * The {@code meaning_snack.source_definition} column is {@code VARCHAR(200)}; the normalized
+     * source definition is clamped to this many characters on a word boundary so it always fits
+     * without a schema change (feature 015, FR-019).
+     */
+    private static final int MAX_SOURCE_DEFINITION_CHARS = 200;
+
     private final LlmProvider llmProvider;
     private final JpaThemeRepository themeRepository;
     private final JpaSubtopicRepository subtopicRepository;
@@ -113,8 +123,10 @@ public class MeaningSnackService {
     }
 
     /**
-     * Truncate the source definition to the first 3 whitespace-separated tokens, mirroring
-     * {@code SnackService.normalizeKeywords} (data-model.md §4.2).
+     * Normalize the source definition: truncate to the first {@value #MAX_DEFINITION_TOKENS}
+     * whitespace-separated tokens, mirroring {@code SnackService.normalizeKeywords}, then clamp to
+     * at most {@value #MAX_SOURCE_DEFINITION_CHARS} characters on a word boundary so it always fits
+     * the existing {@code VARCHAR(200)} column without splitting a word (data-model.md §4.2, FR-019).
      */
     private String normalizeDefinition(String definition) {
         if (definition == null) {
@@ -125,10 +137,16 @@ public class MeaningSnackService {
             return "";
         }
         String[] tokens = trimmed.split("\\s+");
-        if (tokens.length > 3) {
-            return String.join(" ", Arrays.copyOf(tokens, 3));
+        String normalized = tokens.length > MAX_DEFINITION_TOKENS
+                ? String.join(" ", Arrays.copyOf(tokens, MAX_DEFINITION_TOKENS))
+                : trimmed;
+        if (normalized.length() > MAX_SOURCE_DEFINITION_CHARS) {
+            int cut = normalized.lastIndexOf(' ', MAX_SOURCE_DEFINITION_CHARS);
+            normalized = cut > 0
+                    ? normalized.substring(0, cut)
+                    : normalized.substring(0, MAX_SOURCE_DEFINITION_CHARS);
         }
-        return trimmed;
+        return normalized;
     }
 
     /** Generate and validate; re-roll exactly once, then fail with a typed 503 (FR-007, SC-005). */
