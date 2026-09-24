@@ -157,28 +157,46 @@ export class SnacksComponent implements OnDestroy {
   readonly anyReady = computed(() => this.batchItems().some((i) => i.snackStatus === 'READY'));
 
   /**
-   * Feature 014: whether the definition card offers the generate action (a regular entry with a
-   * resolvable theme/subtopic source).
+   * Feature 014/017: whether the definition card offers the snack-creation action. For a regular
+   * highlighted keyword this is the unchanged feature-014 predicate; for a custom-Define card
+   * (feature 017) the action is offered only once a valid generated meaning exists and a source
+   * subtopic was captured (FR-002). The action slot is relabeled, never duplicated (FR-003).
    */
-  readonly generateEnabled = computed(
-    () =>
-      !!this.themeId &&
-      !this.customDefinition() &&
-      this.currentEntry()?.kind === 'regular',
-  );
+  readonly generateEnabled = computed(() => {
+    if (!this.themeId) {
+      return false;
+    }
+    if (this.customDefinition()) {
+      // Feature 017: no action while defining, on a definition error, on a blank meaning, or when
+      // no source subtopic could be resolved (FR-002, SC-001).
+      return (
+        !this.definitionLoading() &&
+        !this.definitionError() &&
+        !!this.activeKeyword()?.definition &&
+        !!this.activeKeywordSubtopicId()
+      );
+    }
+    // Feature-014 regular keyword card: behavior-equivalent to before this feature.
+    return this.currentEntry()?.kind === 'regular';
+  });
 
-  /** Feature 014: the card state for the active keyword (FR-003/FR-005/FR-006). */
+  /**
+   * Feature 014/017: the card state for the active keyword, keyed by the source subtopic captured
+   * when the card opened (`openKeyword` for regular keywords, `onDefineRequested` for the custom
+   * flow). The `hasGenerated` fallback gives the already-generated (`done`) state on re-open
+   * (FR-003/FR-005/FR-006/FR-010).
+   */
   readonly activeGenerateState = computed<GenerateState>(() => {
     const keyword = this.activeKeyword();
-    const entry = this.currentEntry();
-    if (this.customDefinition() || !keyword || !entry || entry.kind !== 'regular') {
+    const subtopicId = this.activeKeywordSubtopicId();
+    if (!keyword || !subtopicId) {
       return 'idle';
     }
-    const state = this.generateStates()[generateKey(entry.subtopicId, keyword.term)];
+    const state = this.generateStates()[generateKey(subtopicId, keyword.term)];
     if (state) {
       return state;
     }
-    return this.meaningSnackService.hasGenerated(entry.subtopicId, keyword.term) ? 'done' : 'idle';
+    return this.meaningSnackService.hasGenerated(subtopicId, keyword.term) ? 'done' : 'idle';
   });
 
   /**
@@ -601,10 +619,12 @@ export class SnacksComponent implements OnDestroy {
 
   // ─── Feature 016 — custom keyword "Define" flow ────────────────────────────
   //
-  // SECURITY BOUNDARY (feature 016): the selected term is read as plain text by the directive
-  // (`Selection.toString()`), and the generated definition is fed into the existing
-  // `keyword-definition-card`, which renders both via escaped interpolation only. This page never
-  // uses `[innerHTML]` or `DomSanitizer` (FR-013/FR-014/FR-015).
+  // SECURITY BOUNDARY (features 016/017): the selected term is read as plain text by the directive
+  // (`Selection.toString()`), and the generated definition (the custom meaning) is fed into the
+  // existing `keyword-definition-card`, which renders both via escaped interpolation only. The
+  // created snack's content is rendered through the shared `<app-rich-text>` safe renderer. This
+  // page never uses `[innerHTML]` or `DomSanitizer`, and the custom term/meaning remain untrusted
+  // (FR-013/FR-014/FR-015, FR-017..FR-019).
 
   /**
    * FR-001/FR-010/FR-011: a held selection arrived from the directive. Normalize and locally
@@ -656,6 +676,19 @@ export class SnacksComponent implements OnDestroy {
     this.selectionAffordance.set(null);
     this.selectionError.set(null);
     this.generateError.set(null);
+
+    // Feature 017 (Option A, FR-005): pin the active entry's source subtopic at Define time so the
+    // created snack attaches to the entry the meaning was read from — a regular entry's `subtopicId`
+    // or a meaning entry's `sourceSubtopicId` (null when neither resolves). This mirrors feature
+    // 014's capture-at-open invariant and lets the existing `onGenerateRequested` work unchanged.
+    const sourceEntry = this.currentEntry();
+    const sourceSubtopicId =
+      sourceEntry?.kind === 'regular'
+        ? sourceEntry.subtopicId
+        : sourceEntry?.kind === 'meaning'
+          ? sourceEntry.sourceSubtopicId
+          : null;
+    this.activeKeywordSubtopicId.set(sourceSubtopicId);
 
     // Open the existing single card for the selected term with a loading state (FR-006/FR-008).
     this.activeKeyword.set({ term: pending.term, definition: '' });

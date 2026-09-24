@@ -40,7 +40,9 @@
       @if (generateEnabled()) {
         <!--
           The action control stays mounted through every state so keyboard focus is never dropped
-          when "Generate snack" is activated (idle → loading → done). The state changes are announced
+          when the action is activated (idle → loading → done). Feature 017 relabels the slot for a
+          custom-Define card (`Create snack` / `Creating…`); the regular keyword card keeps
+          `Generate snack` / `Generating…` (FR-001/FR-003/FR-006). The state changes are announced
           by a visually-hidden live region, and the row reserves its height so nothing shifts.
         -->
         <div class="keyword-card__action">
@@ -54,15 +56,17 @@
           >
             @if (generateState() === 'loading') {
               <span class="spinner spinner--sm" aria-hidden="true"></span>
-              Generating…
+              {{ customDefinition() ? 'Creating…' : 'Generating…' }}
             } @else if (generateState() === 'done') {
               Added to your snacks <span aria-hidden="true">✓</span>
             } @else {
-              Generate snack
+              {{ customDefinition() ? 'Create snack' : 'Generate snack' }}
             }
           </button>
           @if (generateState() === 'loading') {
-            <span class="keyword-card__action-status sr-only" role="status">Generating…</span>
+            <span class="keyword-card__action-status sr-only" role="status">{{
+              customDefinition() ? 'Creating…' : 'Generating…'
+            }}</span>
           }
           @if (generateState() === 'done') {
             <span class="sr-only" role="status">Added to your snacks</span>
