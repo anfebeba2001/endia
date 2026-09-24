@@ -42,23 +42,6 @@
 - [ ] If both primary and alternate providers fail, a meaningful error is returned (consistent with Task 5 surface behaviour).
 - [ ] Manual test simulates a primary-provider SERVICE_UNAVAILABLE and confirms the alternate provider is used and the flow still succeeds.
 
-### Task 10: Expand keyword meaning limit from 3 to 20 words
-
-- Status: no iniciado
-- Ready: yes
-- Sources: item 13
-- Description: Raise the keyword-definition (meaning) length cap from at most 3 words to at most 20 words across generation, normalization, and documentation, so keyword meanings can be richer without changing snack behavior.
-
-**Acceptance criteria:**
-- [ ] `SnackService.normalizeKeywords` caps keyword definitions at 20 whitespace-separated tokens (no longer 3); tests that asserted the 3-word cap are updated to the 20-word rule.
-- [ ] `MeaningSnackService.normalizeDefinition` caps the source definition at 20 tokens (no longer 3), consistent with `SnackService`.
-- [ ] The snack-generation prompt (`backend/src/main/resources/prompts/generate-snack.md`) instructs the model to produce keyword definitions of at most 20 words (example JSON and the explicit rule updated), so definitions are not pre-shortened to 3 words.
-- [ ] Comments/javadoc stating "at most 3 words" are updated to "at most 20 words" (`SnackKeyword`, `SnackKeywordDto`, frontend `snack.model.ts`).
-- [ ] A generated definition longer than 3 words (up to 20) survives generation → API → display without being truncated to 3 words.
-- [ ] A definition longer than 20 words is still safely capped at 20 tokens (no unbounded text persisted or returned).
-- [ ] The definition card and highlighted-keyword rendering stay readable with up-to-20-word definitions: no horizontal overflow, no clipping, and feature 013/014 behavior is not regressed.
-- [ ] Tests cover the boundary (19, 20, 21 words) and the existing backend/frontend suites pass.
-
 ### Task 11: Custom keyword "Define" from a text selection with a 2-second trigger
 
 - Status: no iniciado
@@ -99,13 +82,13 @@
 - Task 3: Ready (awaiting implementation)
 - Task 4: Ready (awaiting implementation)
 - Task 6: Ready (awaiting implementation)
-- Task 10: Ready (awaiting implementation)
 - Task 11: Ready (awaiting implementation)
 - Task 12: Ready (awaiting implementation)
 
 _Completed: Task 9 — "Generate snack" from a keyword definition into the main topics backbone (no quiz) → feature `014-meaning-snacks` (merged to main)._
+_Completed: Task 10 — Expand keyword meaning limit from 3 to 20 words → feature `015-keyword-meaning-20-words` (merged to main)._
 
-_item 13 grouped into Tasks 10–12 (follow-up enhancement to feature 014); awaiting user approval before item 13 is removed._
+_item 13 grouped into Tasks 10–12 (follow-up enhancement to feature 014); Task 10 completed, Tasks 11–12 still pending._
 
 13. expand the meaning from key word from 3 to 20 max words, also let's generate custom key words, when an user select words , after 2 seconds it shall appear the option "Define" and then generate the meaning and then again the option of create a snack for that key word
 
