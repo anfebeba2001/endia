@@ -418,6 +418,26 @@ button {
   }
 }
 
+/* Transient page-level alert — the floating companion to `.error-banner` for feedback that must not
+   reflow the page (feature 016 held-selection validation). Clamped so it never overflows. */
+.define-error {
+  position: fixed;
+  left: 50%;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 1100;
+  max-width: min(360px, calc(100vw - 2rem));
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--error);
+  border-radius: var(--radius-sm);
+  background: var(--error-soft);
+  color: var(--error);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  box-shadow: var(--shadow-lg);
+  overflow-wrap: anywhere;
+}
+
 .state,
 .loading {
   display: flex;
@@ -464,6 +484,19 @@ button {
     border-radius: 50%;
     background: var(--gold);
     animation: simmer 1.15s ease-in-out 0.4s infinite;
+  }
+}
+
+/* Compact loader for inline/narrow contexts (card, affordance, status rows). Global so it also
+   reaches components other than the snacks page, whose scoped styles cannot cross the view. */
+.spinner--sm {
+  width: 20px;
+  height: 20px;
+
+  &::before {
+    width: 7px;
+    height: 7px;
+    margin: -3.5px 0 0 -3.5px;
   }
 }
 

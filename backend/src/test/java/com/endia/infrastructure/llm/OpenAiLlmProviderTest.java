@@ -321,6 +321,72 @@ class OpenAiLlmProviderTest {
         assertEquals(List.of("r1"), result.related());
     }
 
+    // ---- Feature 016 (US1): short-definition defensive parsing (FR-004/FR-005) ----
+
+    @Test
+    void generateDefinitionParsesWellFormedObject() throws Exception {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("definition", "the process plants use to turn light into chemical energy");
+        String content = mapper.writeValueAsString(body);
+        String envelope = mapper.writeValueAsString(
+                Map.of("choices", List.of(Map.of("message", Map.of("content", content)))));
+        server.enqueue(new MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody(envelope));
+
+        LlmProvider.GeneratedDefinition result =
+                provider.generateDefinition("Photosynthesis", "photosynthesis");
+
+        assertEquals("the process plants use to turn light into chemical energy", result.definition());
+    }
+
+    @Test
+    void generateDefinitionMissingFieldYieldsNull() throws Exception {
+        server.enqueue(new MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody("""
+                        {"choices":[{"message":{"content":"{\\"somethingElse\\":\\"x\\"}"}}]}}
+                        """));
+
+        LlmProvider.GeneratedDefinition result =
+                provider.generateDefinition("Photosynthesis", "photosynthesis");
+
+        assertTrue(result.definition() == null,
+                "a missing definition field must yield null");
+    }
+
+    @Test
+    void generateDefinitionMalformedOverallResponseThrowsMalformed() {
+        server.enqueue(new MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody("""
+                        {"choices":[{"message":{"content":"not-json-at-all"}}]}}
+                        """));
+
+        LlmGenerationException ex = assertThrows(LlmGenerationException.class,
+                () -> provider.generateDefinition("Photosynthesis", "photosynthesis"));
+        assertEquals(LlmErrorCause.MALFORMED, ex.getCauseType());
+    }
+
+    @Test
+    void generateDefinitionIgnoresExtraEmittedFields() throws Exception {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("definition", "light to sugar");
+        body.put("keywords", List.of(Map.of("term", "should", "definition", "be ignored")));
+        body.put("quiz", "ignored");
+        String content = mapper.writeValueAsString(body);
+        String envelope = mapper.writeValueAsString(
+                Map.of("choices", List.of(Map.of("message", Map.of("content", content)))));
+        server.enqueue(new MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody(envelope));
+
+        LlmProvider.GeneratedDefinition result =
+                provider.generateDefinition("Photosynthesis", "photosynthesis");
+
+        assertEquals("light to sugar", result.definition());
+    }
+
     // ---- Cause mapping (T072) ----
 
     @Test

@@ -71,7 +71,12 @@
         </ol>
       </nav>
 
-      <div class="snack-content">
+      <div
+        class="snack-content"
+        appSelectionDefine
+        (termSelected)="onTermSelected($event)"
+        (selectionCleared)="onSelectionCleared()"
+      >
         @if (currentEntry(); as entry) {
           @if (entry.kind === 'regular') {
             @if (entry.snackStatus === 'READY' && entry.snack; as snack) {
@@ -253,6 +258,20 @@
     </div>
   }
 
+  <!-- Feature 016: transient, selection-anchored "Define" affordance (exactly one per page). -->
+  <app-selection-define-affordance
+    class="selection-define"
+    [rect]="selectionAffordance()?.rect ?? null"
+    [visible]="!!selectionAffordance()"
+    [loading]="false"
+    (defineRequested)="onDefineRequested()"
+    (dismissed)="onSelectionCleared()"
+  />
+
+  @if (selectionError(); as selErr) {
+    <div class="define-error" role="alert">{{ selErr }}</div>
+  }
+
   <!-- Exactly one definition card per page (FR-021); mounted once regardless of the active snack. -->
   <app-keyword-definition-card
     [keyword]="activeKeyword()"
@@ -260,6 +279,9 @@
     [generateEnabled]="generateEnabled()"
     [generateState]="activeGenerateState()"
     [generateError]="generateError()"
+    [definitionLoading]="definitionLoading()"
+    [definitionError]="definitionError()"
+    [anchorRect]="activeKeywordRect()"
     (generateRequested)="onGenerateRequested($event)"
     (closed)="closeKeyword()"
   />

@@ -52,6 +52,11 @@ public class RetryingLlmProvider implements LlmProvider {
         return retry(() -> delegate.generateMeaningSnack(theme, term, definition));
     }
 
+    @Override
+    public GeneratedDefinition generateDefinition(String theme, String term) {
+        return retry(() -> delegate.generateDefinition(theme, term));
+    }
+
     private <T> T retry(ThrowingSupplier<T> supplier) {
         LlmGenerationException last = null;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {

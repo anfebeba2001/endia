@@ -1,0 +1,24 @@
+<!--
+  SECURITY BOUNDARY (feature 016): the affordance renders a static label only — no [innerHTML] and
+  no DomSanitizer. The button is positioned from the selection rect and clamped to the viewport.
+
+  `mousedown` preventDefault stops the click from collapsing the document selection, so the host's
+  `selectionchange` listener does not dismiss the affordance before the click is handled.
+-->
+@if (visible()) {
+  <button
+    type="button"
+    class="selection-define__button"
+    aria-label="Define selected text"
+    [style.top]="position().top"
+    [style.left]="position().left"
+    [disabled]="loading()"
+    (mousedown)="$event.preventDefault()"
+    (click)="onDefine()"
+  >
+    @if (loading()) {
+      <span class="spinner spinner--sm" aria-hidden="true"></span>
+    }
+    Define
+  </button>
+}

@@ -246,16 +246,8 @@
   font-size: 0.9rem;
 }
 
-.spinner--sm {
-  width: 20px;
-  height: 20px;
-
-  &::before {
-    width: 7px;
-    height: 7px;
-    margin: -3.5px 0 0 -3.5px;
-  }
-}
+/* `.spinner--sm` lives in the global stylesheet (styles.scss) so every component that uses it —
+   including the keyword-definition-card and the selection affordance — gets the compact loader. */
 
 .retry-spinner {
   display: flex;
@@ -307,3 +299,6 @@
     box-shadow: inset 3px 0 0 var(--meaning-accent);
   }
 }
+
+/* `.define-error` (feature 016 held-selection validation) lives in the global stylesheet
+   (styles.scss) beside `.error-banner`, so the component stays within its style budget. */

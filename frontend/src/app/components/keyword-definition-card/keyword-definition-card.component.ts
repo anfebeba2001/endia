@@ -50,6 +50,18 @@ export class KeywordDefinitionCardComponent implements OnChanges {
   /** Feature 014: a user-safe error to show inline, or null (FR-004). */
   readonly generateError = input<string | null>(null);
 
+  /** Feature 016: whether a custom definition is currently being generated (loading state). */
+  readonly definitionLoading = input<boolean>(false);
+
+  /** Feature 016: a user-safe error for the custom-definition flow, or null. */
+  readonly definitionError = input<string | null>(null);
+
+  /**
+   * Feature 016: the selection rect to position the card from when there is no `anchor` element
+   * (the custom-Define flow has no term control). Ignored when `anchor` is present.
+   */
+  readonly anchorRect = input<DOMRect | null>(null);
+
   /** Feature 014: emitted when the user activates "Generate snack" (the host owns the request). */
   readonly generateRequested = output<SnackKeyword>();
 
@@ -64,7 +76,7 @@ export class KeywordDefinitionCardComponent implements OnChanges {
   private lastAnchor: HTMLElement | null = null;
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (!changes['keyword'] && !changes['anchor']) {
+    if (!changes['keyword'] && !changes['anchor'] && !changes['anchorRect']) {
       return;
     }
     if (this.keyword()) {
@@ -124,7 +136,7 @@ export class KeywordDefinitionCardComponent implements OnChanges {
   private updatePosition(): void {
     const anchor = this.anchor();
     const card = this.cardRef?.nativeElement;
-    if (!anchor || !card || typeof window === 'undefined') {
+    if (!card || typeof window === 'undefined') {
       return;
     }
     const viewportWidth = window.innerWidth;
@@ -136,8 +148,13 @@ export class KeywordDefinitionCardComponent implements OnChanges {
       return;
     }
 
+    // Feature 016: prefer the anchor element; fall back to the selection rect (custom-Define flow).
+    const rect = anchor ? anchor.getBoundingClientRect() : this.anchorRect();
+    if (!rect) {
+      return;
+    }
+
     this.sheet.set(false);
-    const rect = anchor.getBoundingClientRect();
     const cardWidth = Math.min(280, Math.max(200, card.offsetWidth || 240));
     const cardHeight = card.offsetHeight || 0;
     const left = Math.max(8, Math.min(rect.left, viewportWidth - cardWidth - 8));

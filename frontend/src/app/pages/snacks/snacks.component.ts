@@ -20,13 +20,24 @@ import {
 import { Subject, takeUntil } from 'rxjs';
 import { RichTextComponent } from '../../components/rich-text/rich-text.component';
 import { KeywordDefinitionCardComponent } from '../../components/keyword-definition-card/keyword-definition-card.component';
+import { SelectionDefineDirective } from '../../components/selection-define/selection-define.directive';
+import { SelectionDefineAffordanceComponent } from '../../components/selection-define/selection-define-affordance.component';
+import { DefinitionService } from '../../services/definition.service';
 
 type GenerateState = 'idle' | 'loading' | 'done';
+
+/** Feature 016: maximum whitespace-separated tokens accepted for a selected term (FR-010). */
+const MAX_TERM_TOKENS = 10;
 
 @Component({
   selector: 'app-snacks',
   standalone: true,
-  imports: [RichTextComponent, KeywordDefinitionCardComponent],
+  imports: [
+    RichTextComponent,
+    KeywordDefinitionCardComponent,
+    SelectionDefineDirective,
+    SelectionDefineAffordanceComponent,
+  ],
   templateUrl: './snacks.component.html',
   styleUrl: './snacks.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -56,6 +67,22 @@ export class SnacksComponent implements OnDestroy {
   /** Feature 013: the single active keyword/anchor pair; exactly one card per page (FR-018/FR-021). */
   readonly activeKeyword = signal<SnackKeyword | null>(null);
   readonly activeKeywordAnchor = signal<HTMLElement | null>(null);
+
+  // ─── Feature 016 — custom keyword "Define" (held selection) ────────────────
+  /** The held selection awaiting activation, or null when no affordance is shown. */
+  readonly selectionAffordance = signal<{ term: string; rect: DOMRect } | null>(null);
+  /** A meaningful, user-safe error for an invalid selection (blank/oversized), or null. */
+  readonly selectionError = signal<string | null>(null);
+  /** True while a definition request is in flight; guards against duplicate requests (FR-007). */
+  readonly defining = signal(false);
+  /** Whether the open custom-definition card is loading (FR-006). */
+  readonly definitionLoading = signal(false);
+  /** A user-safe error for a failed custom-definition generation, or null (FR-009). */
+  readonly definitionError = signal<string | null>(null);
+  /** Whether the active card was opened by the custom-Define flow (no "Generate snack" action). */
+  readonly customDefinition = signal(false);
+  /** The selection rect used to position the custom-definition card. */
+  readonly activeKeywordRect = signal<DOMRect | null>(null);
   /**
    * Feature 014: the regular subtopic the active keyword belongs to, captured at card-open time.
    * Generation uses this captured source (not the possibly-changed `currentEntry`) so keyboard
@@ -134,14 +161,17 @@ export class SnacksComponent implements OnDestroy {
    * resolvable theme/subtopic source).
    */
   readonly generateEnabled = computed(
-    () => !!this.themeId && this.currentEntry()?.kind === 'regular',
+    () =>
+      !!this.themeId &&
+      !this.customDefinition() &&
+      this.currentEntry()?.kind === 'regular',
   );
 
   /** Feature 014: the card state for the active keyword (FR-003/FR-005/FR-006). */
   readonly activeGenerateState = computed<GenerateState>(() => {
     const keyword = this.activeKeyword();
     const entry = this.currentEntry();
-    if (!keyword || !entry || entry.kind !== 'regular') {
+    if (this.customDefinition() || !keyword || !entry || entry.kind !== 'regular') {
       return 'idle';
     }
     const state = this.generateStates()[generateKey(entry.subtopicId, keyword.term)];
@@ -171,6 +201,7 @@ export class SnacksComponent implements OnDestroy {
     private retryService: SnackRetryService,
     private errorService: ErrorService,
     private meaningSnackService: MeaningSnackService,
+    private definitionService: DefinitionService,
     private router: Router,
   ) {
     void this.init();
@@ -474,6 +505,9 @@ export class SnacksComponent implements OnDestroy {
     // Feature 014: changing the active entry dismisses any open definition card so a keyword can
     // never be generated against a different (newer) source subtopic.
     this.closeKeyword();
+    // Feature 016: navigation also dismisses any pending selection affordance.
+    this.selectionAffordance.set(null);
+    this.selectionError.set(null);
     this.appState.setSnackIndex(index);
   }
 
@@ -542,6 +576,13 @@ export class SnacksComponent implements OnDestroy {
     this.activeKeyword.set(event.keyword);
     this.activeKeywordAnchor.set(event.anchor);
     this.generateError.set(null);
+    // Feature 016: a keyword click supersedes any pending/active custom-Define state.
+    this.selectionAffordance.set(null);
+    this.selectionError.set(null);
+    this.customDefinition.set(false);
+    this.activeKeywordRect.set(null);
+    this.definitionLoading.set(false);
+    this.definitionError.set(null);
   }
 
   /** Feature 013: clear the active keyword after any dismissal. */
@@ -550,6 +591,94 @@ export class SnacksComponent implements OnDestroy {
     this.activeKeywordAnchor.set(null);
     this.activeKeywordSubtopicId.set(null);
     this.generateError.set(null);
+    // Feature 016: reset the custom-Define card state.
+    this.definitionLoading.set(false);
+    this.definitionError.set(null);
+    this.customDefinition.set(false);
+    this.activeKeywordRect.set(null);
+    this.defining.set(false);
+  }
+
+  // ─── Feature 016 — custom keyword "Define" flow ────────────────────────────
+  //
+  // SECURITY BOUNDARY (feature 016): the selected term is read as plain text by the directive
+  // (`Selection.toString()`), and the generated definition is fed into the existing
+  // `keyword-definition-card`, which renders both via escaped interpolation only. This page never
+  // uses `[innerHTML]` or `DomSanitizer` (FR-013/FR-014/FR-015).
+
+  /**
+   * FR-001/FR-010/FR-011: a held selection arrived from the directive. Normalize and locally
+   * validate it; blank/oversized selections show a meaningful error and are never submitted. A
+   * valid term shows the transient, selection-anchored affordance.
+   */
+  onTermSelected(event: { term: string; rect: DOMRect }): void {
+    const term = (event.term ?? '').trim().replace(/\s+/g, ' ');
+    if (term.length === 0) {
+      this.selectionAffordance.set(null);
+      this.selectionError.set('Select a word or phrase to define.');
+      return;
+    }
+    if (term.split(/\s+/).length > MAX_TERM_TOKENS) {
+      this.selectionAffordance.set(null);
+      this.selectionError.set('Select no more than 10 words to define.');
+      return;
+    }
+    this.selectionError.set(null);
+    this.selectionAffordance.set({ term, rect: event.rect });
+  }
+
+  /** FR-002/FR-003: hide the affordance when the selection changes or clears. */
+  onSelectionCleared(): void {
+    this.selectionAffordance.set(null);
+  }
+
+  /**
+   * FR-006/FR-007/FR-008/FR-009: activate "Define" for the held term. At most one request is in
+   * flight; the existing single card opens for the term with a loading state, then shows the
+   * generated definition (or a meaningful error, adding nothing).
+   */
+  onDefineRequested(): void {
+    if (this.defining()) {
+      return;
+    }
+    const pending = this.selectionAffordance();
+    const themeId = this.themeId;
+    if (!pending) {
+      return;
+    }
+    if (!themeId) {
+      this.selectionAffordance.set(null);
+      this.selectionError.set('This term cannot be defined right now.');
+      return;
+    }
+
+    this.defining.set(true);
+    this.selectionAffordance.set(null);
+    this.selectionError.set(null);
+    this.generateError.set(null);
+
+    // Open the existing single card for the selected term with a loading state (FR-006/FR-008).
+    this.activeKeyword.set({ term: pending.term, definition: '' });
+    this.activeKeywordAnchor.set(null);
+    this.activeKeywordRect.set(pending.rect);
+    this.customDefinition.set(true);
+    this.definitionLoading.set(true);
+    this.definitionError.set(null);
+
+    this.definitionService.generate(themeId, pending.term).subscribe({
+      next: (res) => {
+        this.activeKeyword.set({ term: res.term, definition: res.definition });
+        this.definitionLoading.set(false);
+        this.definitionError.set(null);
+        this.defining.set(false);
+      },
+      error: (err) => {
+        // Show a meaningful, user-safe error and add nothing empty/placeholder (FR-009).
+        this.definitionLoading.set(false);
+        this.definitionError.set(this.errorService.getMessage(err));
+        this.defining.set(false);
+      },
+    });
   }
 
   /**

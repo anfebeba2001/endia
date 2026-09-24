@@ -38,6 +38,12 @@ public class LlmPromptTemplates {
                 .replace("{{definition}}", definition);
     }
 
+    /** Feature 016: the externalized short-definition prompt, parameterized by theme/term. */
+    public String generateDefinition(String theme, String term) {
+        String tpl = load("prompts/generate-definition.md");
+        return tpl.replace("{{theme}}", theme).replace("{{term}}", term);
+    }
+
     private String render(String path, String placeholder, String value) {
         return load(path).replace(placeholder, value);
     }
