@@ -42,35 +42,18 @@
 - [ ] If both primary and alternate providers fail, a meaningful error is returned (consistent with Task 5 surface behaviour).
 - [ ] Manual test simulates a primary-provider SERVICE_UNAVAILABLE and confirms the alternate provider is used and the flow still succeeds.
 
-### Task 12: "Create snack" from a custom keyword's generated meaning
-
-- Status: no iniciado
-- Ready: yes
-- Sources: item 13
-- Description: After a custom selected keyword's meaning has been generated and shown, offer a "Create snack" action that turns that term + meaning into a meaning snack in the main topics backbone, reusing the feature-014 flow.
-
-**Acceptance criteria:**
-- [ ] After a custom keyword's meaning is generated and displayed, the definition card offers a "Create snack" action for that keyword (reusing/relabeling the feature-014 "Generate snack" action).
-- [ ] Activating it generates a meaning snack derived from the custom term + generated meaning and adds it to the main topics backbone via the existing feature-014 persistence/retrieval path.
-- [ ] The resulting snack is quiz-free and visually distinct, per feature 014 (no quiz is generated, prefetched, stored, or offered).
-- [ ] While generating, a loading/in-progress state is shown; repeated/rapid activation creates at most one snack and no duplicate entry for the same (subtopic, term).
-- [ ] On failure, a meaningful user-safe error is shown and nothing broken/empty/placeholder is added.
-- [ ] The custom keyword's meaning snack survives a page reload and a new session for the same theme, consistent with feature 014 persistence.
-- [ ] The "Create snack" action is offered only when a valid generated meaning for the selected term exists (not before "Define" completes).
-- [ ] Non-regression: regular snack generation and existing meaning-snack generation from LLM-provided keywords behave unchanged, and the existing E2E suites pass.
-
 ## Current status
 
 - Task 3: Ready (awaiting implementation)
 - Task 4: Ready (awaiting implementation)
 - Task 6: Ready (awaiting implementation)
-- Task 12: Ready (awaiting implementation)
 
 _Completed: Task 9 — "Generate snack" from a keyword definition into the main topics backbone (no quiz) → feature `014-meaning-snacks` (merged to main)._
 _Completed: Task 10 — Expand keyword meaning limit from 3 to 20 words → feature `015-keyword-meaning-20-words` (merged to main)._
 _Completed: Task 11 — Custom keyword "Define" from a held text selection (2-second trigger) → feature `016-custom-keyword-define` (merged to main)._
+_Completed: Task 12 — "Create snack" from a custom keyword's generated meaning → feature `017-custom-keyword-create-snack` (merged to main)._
 
-_item 13 grouped into Tasks 10–12 (follow-up enhancement to feature 014); Tasks 10 and 11 completed, Task 12 still pending._
+_item 13 grouped into Tasks 10–12 (follow-up enhancement to feature 014); Tasks 10, 11 and 12 all completed._
 
 13. expand the meaning from key word from 3 to 20 max words, also let's generate custom key words, when an user select words , after 2 seconds it shall appear the option "Define" and then generate the meaning and then again the option of create a snack for that key word
 
