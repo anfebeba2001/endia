@@ -32,6 +32,9 @@ public class SnackService {
 
     private static final Logger log = LoggerFactory.getLogger(SnackService.class);
 
+    /** Maximum number of whitespace-separated tokens kept in a keyword definition (feature 015). */
+    private static final int MAX_DEFINITION_TOKENS = 20;
+
     private final LlmProvider llmProvider;
     private final JpaThemeRepository themeRepository;
     private final JpaSubtopicRepository subtopicRepository;
@@ -143,7 +146,7 @@ public class SnackService {
     /**
      * Normalizes the model-provided keyword list (feature 013, FR-007..FR-009), order-preserving:
      * drops nulls and blank terms/definitions, trims values, truncates definitions to the first
-     * 3 whitespace-separated tokens, drops empty-after-truncation entries, and de-duplicates by
+     * 20 whitespace-separated tokens, drops empty-after-truncation entries, and de-duplicates by
      * trimmed term case-insensitively (keeping the first).
      *
      * <p>The result may be empty; keywords are <strong>never</strong> consulted by {@link #isValid},
@@ -165,8 +168,8 @@ public class SnackService {
                 continue;
             }
             String[] tokens = definition.split("\\s+");
-            if (tokens.length > 3) {
-                definition = String.join(" ", Arrays.copyOf(tokens, 3));
+            if (tokens.length > MAX_DEFINITION_TOKENS) {
+                definition = String.join(" ", Arrays.copyOf(tokens, MAX_DEFINITION_TOKENS));
             }
             if (definition.isEmpty()) {
                 continue;

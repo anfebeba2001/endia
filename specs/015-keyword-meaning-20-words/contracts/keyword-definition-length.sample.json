@@ -1,0 +1,68 @@
+{
+  "_comment": "Feature 015 — example payloads. Response shapes are IDENTICAL to feature 013/014; only the allowed length of a keyword 'definition' / meaning-snack 'sourceDefinition' changes from <=3 to <=20 whitespace-separated tokens. Use these as deterministic Playwright route mocks.",
+
+  "snackGenerateResponse": {
+    "snacks": [
+      {
+        "id": "snack-1",
+        "subtopicId": "sub-001",
+        "subtopicName": "Light reactions",
+        "concept": "**Photosynthesis** converts light into chemical energy.",
+        "metaphor": "Think of a leaf as a solar kitchen.",
+        "whyItMatters": "Nearly every food chain starts here.",
+        "related": ["Chlorophyll", "Glucose"],
+        "keywords": [
+          {
+            "term": "photosynthesis",
+            "definition": "the process plants use to convert light energy into stored chemical energy"
+          },
+          {
+            "term": "chlorophyll",
+            "definition": "the green pigment that captures light"
+          }
+        ]
+      }
+    ]
+  },
+
+  "meaningSnackGenerateRequest": {
+    "themeId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+    "subtopicId": "6f1c2a9e-1b2c-4d3e-8f90-0a1b2c3d4e5f",
+    "term": "photosynthesis",
+    "definition": "the process plants use to convert light energy into stored chemical energy"
+  },
+
+  "meaningSnackGenerateResponse": {
+    "alreadyExisted": false,
+    "meaningSnack": {
+      "id": "c0ffee00-1111-2222-3333-444455556666",
+      "kind": "MEANING",
+      "themeId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+      "sourceSubtopicId": "6f1c2a9e-1b2c-4d3e-8f90-0a1b2c3d4e5f",
+      "sourceSubtopicName": "Light reactions",
+      "sourceTerm": "photosynthesis",
+      "sourceDefinition": "the process plants use to convert light energy into stored chemical energy",
+      "concept": "**Photosynthesis** converts light energy into stored chemical energy...",
+      "metaphor": "Think of a leaf as a **solar kitchen**...",
+      "whyItMatters": "Nearly every food chain starts here...",
+      "related": ["Chlorophyll", "Glucose"],
+      "createdAt": "2026-09-23T12:00:00"
+    }
+  },
+
+  "meaningSnackListResponse": {
+    "themeId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+    "meaningSnacks": []
+  },
+
+  "boundaryDefinitions": {
+    "_comment": "For backend 19/20/21-token boundary tests and the frontend wrapping assertion.",
+    "nineteenTokens": "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen",
+    "twentyTokens": "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty",
+    "twentyOneTokens": "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty twentyone",
+    "hyphenatedCompoundCountsAsOne": "state-of-the-art single token",
+    "veryLongSingleToken": "verylongunbrokentokenthatmustwrapwithoutoverflowingthecardwidth",
+    "over200CharsWithin20Tokens": "photosynthesis chlorophyll chloroplasts thylakoidmembrane stroma granum electrontransport photosystems atpsynthase calvincycle carbonfixation rubiscoenzyme glucose oxygen pigments lightenergy biochemical metabolism conversion molecular",
+    "_charClampNote": "The over200CharsWithin20Tokens fixture is <=20 tokens but >200 characters; MeaningSnackService.normalizeDefinition must clamp the stored sourceDefinition to <=200 chars on a word boundary (FR-019). The response/request shapes are unchanged."
+  }
+}

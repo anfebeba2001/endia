@@ -1,4 +1,4 @@
-/** A key term of a snack with a very short (at most 3 words) definition (feature 013). */
+/** A key term of a snack with a short (at most 20 words) definition (feature 013; feature 015). */
 export interface SnackKeyword {
   term: string;
   definition: string;

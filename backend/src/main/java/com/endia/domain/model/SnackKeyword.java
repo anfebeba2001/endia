@@ -1,8 +1,8 @@
 package com.endia.domain.model;
 
 /**
- * A key term of a snack together with a very short (at most 3 words) definition
- * (feature 013, FR-011).
+ * A key term of a snack together with a short (at most 20 words) definition
+ * (feature 013, FR-011; feature 015).
  *
  * <p>This is a pure domain value object: no JPA annotations and no framework imports.
  * It is Jackson-serializable because it is persisted inside the snack's {@code keywords}
