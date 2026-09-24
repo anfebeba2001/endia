@@ -42,24 +42,6 @@
 - [ ] If both primary and alternate providers fail, a meaningful error is returned (consistent with Task 5 surface behaviour).
 - [ ] Manual test simulates a primary-provider SERVICE_UNAVAILABLE and confirms the alternate provider is used and the flow still succeeds.
 
-### Task 11: Custom keyword "Define" from a text selection with a 2-second trigger
-
-- Status: no iniciado
-- Ready: yes
-- Sources: item 13
-- Description: Let the user select words in the snack reading content; after the selection is held for 2 seconds a "Define" option appears; activating it generates the meaning for the selected term and shows it in the definition card.
-
-**Acceptance criteria:**
-- [ ] Selecting text (one or more words) inside a snack's reading content starts a 2-second timer; only after the selection has been held for ~2 seconds does a clearly labeled "Define" affordance appear for that selection.
-- [ ] If the selection changes or is cleared before 2 seconds elapse, no "Define" affordance appears (the timer is cancelled).
-- [ ] Activating "Define" sends the selected term to the backend, which returns a generated meaning/definition for that term via the externalized, provider-agnostic LLM flow (no provider-specific logic in services).
-- [ ] While the meaning is generating, a loading/in-progress state is shown, and rapid repeated activation starts at most one request.
-- [ ] On success, the definition card opens for the selected term showing the generated meaning, rendered as escaped text only (no `[innerHTML]`, no `DomSanitizer`), preserving the feature 012/013 security model.
-- [ ] On failure, a meaningful user-safe error is shown and nothing broken/empty/placeholder is added.
-- [ ] The selected term is normalized (trimmed, bounded word count) and blank or oversized selections are rejected with a meaningful error.
-- [ ] The affordance is reachable via pointer text selection and via programmatic/keyboard selection (`document.getSelection()`), without breaking existing highlighted-keyword clicks or the single-definition-card rule.
-- [ ] Non-regression: existing keyword highlight/definition-card and snack reading flows are unchanged and the existing E2E suites pass.
-
 ### Task 12: "Create snack" from a custom keyword's generated meaning
 
 - Status: no iniciado
@@ -82,13 +64,13 @@
 - Task 3: Ready (awaiting implementation)
 - Task 4: Ready (awaiting implementation)
 - Task 6: Ready (awaiting implementation)
-- Task 11: Ready (awaiting implementation)
 - Task 12: Ready (awaiting implementation)
 
 _Completed: Task 9 — "Generate snack" from a keyword definition into the main topics backbone (no quiz) → feature `014-meaning-snacks` (merged to main)._
 _Completed: Task 10 — Expand keyword meaning limit from 3 to 20 words → feature `015-keyword-meaning-20-words` (merged to main)._
+_Completed: Task 11 — Custom keyword "Define" from a held text selection (2-second trigger) → feature `016-custom-keyword-define` (merged to main)._
 
-_item 13 grouped into Tasks 10–12 (follow-up enhancement to feature 014); Task 10 completed, Tasks 11–12 still pending._
+_item 13 grouped into Tasks 10–12 (follow-up enhancement to feature 014); Tasks 10 and 11 completed, Task 12 still pending._
 
 13. expand the meaning from key word from 3 to 20 max words, also let's generate custom key words, when an user select words , after 2 seconds it shall appear the option "Define" and then generate the meaning and then again the option of create a snack for that key word
 
